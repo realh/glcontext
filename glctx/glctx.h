@@ -40,6 +40,7 @@ extern "C" {
  */
 typedef enum {
     GLCTX_ERROR_NONE,
+    GLCTX_ERROR_MEMORY,     /* Unable to allocate memory */
     GLCTX_ERROR_DISPLAY,    /* Error initialising/configuring display */
     GLCTX_ERROR_CONFIG,     /* Unable to get a suitable GL config */
     GLCTX_ERROR_WINDOW,     /* Unable to configure window */
@@ -71,6 +72,16 @@ typedef enum {
 typedef int (*GlctxLogFunction)(const char *format, ...);
 
 /*
+ * glctx_version_major
+ */
+extern const int glctx_version_major;
+
+/*
+ * glctx_version_minor
+ */
+extern const int glctx_version_minor;
+
+/*
  * glctx_set_log_function
  * Provide a logging function. If NULL, logging is disabled (the default).
  * This may be called at any time, but is usually called before any other
@@ -85,6 +96,12 @@ void glctx_set_log_function(GlctxLogFunction logger);
 typedef struct GlctxData_ *GlctxHandle;
 
 /*
+ * glctx_get_error_name
+ * Returns a string representation of the enum value
+ */
+const char *glctx_get_error_name(GlctxError err);
+
+/*
  * glctx_init
  * Initialise glcontext.
  *
@@ -97,6 +114,13 @@ typedef struct GlctxData_ *GlctxHandle;
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
                       GlctxApiType api, int version,
                       GlctxHandle *pctx);
+
+/*
+ * glctx_query_api_type
+ * Gets the current API type. If it returns GLCTX_API_DEFAULT
+ * this is indicative of an error.
+ */
+GlctxApiType glctx_query_api_type(GlctxHandle ctx);
 
 /*
  * glctx_get_config
@@ -149,7 +173,6 @@ void glctx_flip(GlctxHandle ctx);
  * Unbinds context from current thread
  */
 GlctxError glctx_unbind(GlctxHandle ctx);
-
 
 /*
  * glctx_bind
