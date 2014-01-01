@@ -1,0 +1,18 @@
+#ifndef GLCTXCONFIGANDROID_H
+#define GLCTXCONFIGANDROID_H
+
+/* GLCTX_VERSION_* are defined in Android.mk */
+
+#define GLCTX_ENABLE_RPI 0
+
+#define GLCTX_ENABLE_EGL 1
+#define GLCTX_ENABLE_GLX 0
+#define GLCTX_ENABLE_WGL 0
+
+#define GLCTX_BACKEND_NAME "EGL"
+
+#define GLCTX_MSWIN 0
+#define GLCTX_X11 0
+#define GLCTX_ANDROID 1
+
+#endif // GLCTXCONFIGANDROID_H
