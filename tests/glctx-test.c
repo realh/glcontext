@@ -182,19 +182,36 @@ static GLuint load_shaders(GLint *coord2d_tag, GLint *angle_tag)
     return prog;
 }
 
+#define COS30 0.8660254f
+#define SIN30 0.5f
+
 static void render_loop(GlctxHandle ctx)
 {
     int running = 1;
     static const GLfloat verts[] = {
-             0.0f,  0.8f,
-            -0.8f, -0.8f,
-             0.8f, -0.8f,
+             0.0f,          0.9f,
+            -0.9f * COS30, -0.9f * SIN30,
+             0.9f * COS30, -0.9f * SIN30,
     };
     GLint coord2d, angle_tag;
     GLuint vbo;
     GLuint prog;
     float angle = 0;
+    int w, h;
 
+    w = glctx_get_width(ctx);
+    h = glctx_get_height(ctx);
+    if (w <= 0 || h <= 0)
+    {
+        printf("Unable to get screen size\n");
+    }
+    else
+    {
+        if (w >= h)
+            glViewport((w - h) / 2, 0, h, h);
+        else
+            glViewport(0, (h - w) / 2, w, w);
+    }
     printf("Setting up shaders and buffers\n");
     prog = load_shaders(&coord2d, &angle_tag);
     glGenBuffers(1, &vbo);
