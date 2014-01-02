@@ -2,8 +2,10 @@
 
 #ifdef ENABLE_OPENGL
 #include "GL/glew.h"
+#define MY_GL_VERSION_MINOR 1
 #else
 #include "GLES2/gl2.h"
+#define MY_GL_VERSION_MINOR 0
 #endif
 
 #include <SDL/SDL.h>
@@ -52,10 +54,11 @@ static GlctxHandle init_gl(void)
     GlctxHandle ctx;
     GlctxError err;
 #if defined (_WIN32)
-    err = glctx_init(EGL_DEFAULT_DISPLAY, wminfo.window, MY_GLCTX_API, 2, &ctx);
+    err = glctx_init(EGL_DEFAULT_DISPLAY, wminfo.window, MY_GLCTX_API,
+            2, MY_GL_VERSION_MINOR, &ctx);
 #else
     err = glctx_init(wminfo.info.x11.display, wminfo.info.x11.window,
-            MY_GLCTX_API, 2, &ctx);
+            MY_GLCTX_API, 2, MY_GL_VERSION_MINOR, &ctx);
 #endif
     if (err)
     {

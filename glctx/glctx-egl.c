@@ -6,7 +6,7 @@
 
 #ifdef __ANDROID__
 #include <android/native_window.h>
-#elif ENABLE_RPI
+#elif GLCTX_ENABLE_RPI
 #include "bcm_host.h"
 #endif
 
@@ -19,12 +19,13 @@ struct GlctxData_ {
     EGLContext context;
     GlctxWindow window;
     GlctxApiType api;
-    int version;
+    int version_maj;
+    int version_min;
     EGLConfig config;
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      GlctxApiType api, int version,
+                      GlctxApiType api, int version_maj, int version_min,
                       GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
@@ -33,7 +34,7 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     *pctx = NULL;
     if (!ctx)
         return GLCTX_ERROR_MEMORY;
-#if ENABLE_RPI
+#if GLCTX_ENABLE_RPI
     ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 #else
     ctx->display = eglGetDisplay(display);
@@ -49,7 +50,8 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     *pctx = ctx;
     ctx->window = window;
     ctx->api = api;
-    ctx->version = version;
+    ctx->version_maj = version_maj;
+    ctx->version_min = version_min;
     ctx->config = 0;
     glctx__log("glctx: Initialised display with EGL %d.%d\n", emaj, emin);
     if (!ctx->api && eglQueryAPI() == EGL_NONE)
@@ -93,7 +95,7 @@ GlctxError glctx_get_config(GlctxHandle ctx,
         attrs[12] = EGL_CONFORMANT;
         if (ctx->api == GLCTX_API_OPENGL)
             es = EGL_OPENGL_BIT;
-        else if (ctx->version == 1)
+        else if (ctx->version_maj == 1)
             es = EGL_OPENGL_ES_BIT;
         else
             es = EGL_OPENGL_ES2_BIT;
@@ -163,7 +165,7 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx)
     ANativeWindow_setBuffersGeometry(ctx->window, 0, 0, format);
     return GLCTX_ERROR_NONE;
 }
-#elif ENABLE_RPI
+#elif GLCTX_ENABLE_RPI
 static GlctxError glctx_configure_platform(GlctxHandle ctx)
 {
     static EGL_DISPMANX_WINDOW_T nativewindow;
@@ -215,7 +217,7 @@ GlctxError glctx_activate(GlctxHandle ctx)
 {
     EGLenum eapi;
     EGLint attrs[] = {
-            EGL_CONTEXT_CLIENT_VERSION, ctx->version,
+            EGL_CONTEXT_CLIENT_VERSION, ctx->version_maj,
             EGL_NONE
     };
     GlctxError result = GLCTX_ERROR_NONE;
@@ -322,4 +324,5 @@ void glctx_terminate(GlctxHandle ctx)
         }
         eglTerminate(ctx->display);
     }
+    free(ctx);
 }

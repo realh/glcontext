@@ -108,11 +108,12 @@ const char *glctx_get_error_name(GlctxError err);
  * display:     Native display
  * window:      Native window
  * api:         API type, see comment for typedef
- * version:     OpenGL(ES) major version
+ * version_maj: OpenGL(ES) major version
+ * version_min: OpenGL(ES) minor version
  * pctx:        glcontext handle (out)
  */
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      GlctxApiType api, int version,
+                      GlctxApiType api, int version_maj, int version_min,
                       GlctxHandle *pctx);
 
 /*
