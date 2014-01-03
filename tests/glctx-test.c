@@ -49,6 +49,7 @@ static GlctxHandle init_gl(void)
             GLCTX_CFG_RED_SIZE, 8,
             GLCTX_CFG_GREEN_SIZE, 8,
             GLCTX_CFG_BLUE_SIZE, 8,
+            GLCTX_CFG_DEPTH_SIZE, 24,
             GLCTX_CFG_END
     };
     GlctxDisplay dpy;

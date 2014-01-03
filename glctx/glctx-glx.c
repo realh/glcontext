@@ -66,8 +66,7 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     GLXFBConfig* fbc;
     int i, n;
     int best_nsamples = -1;
-    int *all_attrs;
-    static const int default_native_attrs[] = {
+    static const int default_attrs[] = {
         GLX_X_RENDERABLE    , True,
         GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
         GLX_RENDER_TYPE     , GLX_RGBA_BIT,
@@ -79,9 +78,9 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         */
         None
     };
-    const int *native_attrs = suppress_defaults ? NULL : default_native_attrs;
+    const int *native_attrs = suppress_defaults ? NULL : default_attrs;
+    int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
 
-    all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
     if (attrs)
     {
         for (n = 0; attrs[n]; n += 2)
@@ -102,7 +101,7 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
 
     fbc = glXChooseFBConfig(ctx->dpy, ctx->screen, all_attrs, &fbc_count);
     free(all_attrs);
-    if (!fbc)
+    if (!fbc || fbc_count < 1)
     {
         glctx__log("glctx: Unable to get any matching GLX configs\n");
         return GLCTX_ERROR_CONFIG;
@@ -120,15 +119,16 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
             glXGetFBConfigAttrib(ctx->dpy, fbc[i],
                     GLX_SAMPLES, &nsamples);
 
-            glctx__log("glctx: Matching fbconfig %d, visual ID 0x%2x: "
-                    "SAMPLE_BUFFERS = %d, SAMPLES = %d\n",
-                    i, vi -> visualid, samp_buf, nsamples );
-
             if (best_nsamples < 0 || (samp_buf && nsamples > best_nsamples))
             {
                 *cfg_out = fbc[i];
                 best_nsamples = nsamples;
             }
+
+            glctx__log("glctx: Matching fbconfig %d, visual ID 0x%2x: "
+                    "SAMPLE_BUFFERS = %d, SAMPLES = %d%s\n",
+                    i, vi -> visualid, samp_buf, nsamples,
+                    (best_nsamples == nsamples) ? "\t*" : "");
         }
         XFree(vi);
     }

@@ -23,22 +23,22 @@ const char *glctx_get_error_name(GlctxError err)
     {
         case GLCTX_ERROR_NONE:
             return "GLCTX_ERROR_NONE";
-        case GLCTX_ERROR_MEMORY :
+        case GLCTX_ERROR_MEMORY:
             return "GLCTX_ERROR_MEMORY";
         case GLCTX_ERROR_DISPLAY:
             return "GLCTX_ERROR_DISPLAY";
-        case GLCTX_ERROR_CONFIG :
+        case GLCTX_ERROR_CONFIG:
             return "GLCTX_ERROR_CONFIG";
-        case GLCTX_ERROR_WINDOW :
+        case GLCTX_ERROR_WINDOW:
             return "GLCTX_ERROR_WINDOW";
         case GLCTX_ERROR_SURFACE:
             return "GLCTX_ERROR_SURFACE";
         case GLCTX_ERROR_CONTEXT:
             return "GLCTX_ERROR_CONTEXT";
-        case GLCTX_ERROR_BIND   :
+        case GLCTX_ERROR_BIND:
             return "GLCTX_ERROR_BIND";
-        case GLCTX_ERROR_API     :
-            return "GLCTX_ERROR_API";
+        case GLCTX_ERROR_PROFILE:
+            return "GLCTX_ERROR_PROFILE";
         default:
             break;
     }
@@ -60,7 +60,7 @@ int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs)
         for (n = 0; native_attrs[n]; n += 2)
             ++n_attrs;
     }
-    ++n_attrs;
+    n_attrs = n_attrs * 2 + 1;
     return malloc(sizeof(int) * n_attrs);
 }
 

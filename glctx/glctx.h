@@ -60,7 +60,7 @@ typedef enum {
     GLCTX_ERROR_SURFACE,    /* Unable to set up GL surface */
     GLCTX_ERROR_CONTEXT,    /* Unable to create OpenGL context */
     GLCTX_ERROR_BIND,       /* Unable to bind context to current thread */
-    GLCTX_ERROR_API         /* Unable to bind API type */
+    GLCTX_ERROR_PROFILE     /* Unable to bind profile rendering type */
 } GlctxError;
 
 
@@ -148,9 +148,11 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
  *
  * ctx:         The context to shut down
  * cfg_out:     A config is returned here
- * attrs:       List of pairs of (attr, value), terminated by NONE
+ * attrs:       List of pairs of (attr, value), terminated by NONE; you may mix
+ *              GLCTX_CFG_* with platform's natives, but the latter is not
+ *              recommended except for experts
  * suppress_defaults:   Usually this function adds suitable attributes for the
- *                      platform. Pass != 0 here to prevent them.
+ *                      platform. Pass != 0 here to prevent them (expert).
  */
 GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         const int *attrs, int suppress_defaults);
@@ -167,7 +169,9 @@ int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr);
  * Linux (excluding RPi) it's your responsibility to make sure the window
  * matches the config.
  *
- * attrs:       List of pairs of (GlctxContextAttr, value), terminated by NONE
+ * attrs:       List of pairs of (context_attr, value), terminated by NONE;
+ *              non-NULL suppresses default, usually used for profile.
+ *              (Experts only).
  */
 GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs);

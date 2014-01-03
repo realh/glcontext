@@ -19,9 +19,12 @@ struct GlctxData_ {
     EGLSurface surface;
     EGLContext context;
     GlctxWindow window;
+    int profile;
+    int version;
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
+                      int profile, int maj_version, int min_version,
                       GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
@@ -45,7 +48,9 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     }
     *pctx = ctx;
     ctx->window = window;
-    ctx->config = 0;
+    ctx->profile = profile;
+    ctx->version = maj_version;
+    (void) min_version;
     glctx__log("glctx: Initialised display with EGL %d.%d\n", emaj, emin);
 #if 0
     if (!ctx->api && eglQueryAPI() == EGL_NONE)
@@ -60,56 +65,88 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
 GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         const int *attrs, int suppress_defaults)
 {
-    EGLint n_configs;
-    EGLint attrs[] = {
-        EGL_BLUE_SIZE, b, EGL_GREEN_SIZE, g, EGL_RED_SIZE, r, EGL_ALPHA_SIZE, a,
-        EGL_DEPTH_SIZE, depth,
-        EGL_NONE, EGL_NONE, EGL_NONE, EGL_NONE,
+    int eprofile = (ctx->profile == GLCTX_PROFILE_OPENGLES) ?
+                ((ctx->version > 1) ? EGL_OPENGL_ES2_BIT : EGL_OPENGL_ES_BIT) :
+                EGL_OPENGL_BIT;
+    EGLint default_attrs[] = {
+        EGL_RENDERABLE_TYPE, eprofile,
+        EGL_CONFORMANT, eprofile,
         EGL_NONE
     };
-    if (ctx->api)
-    {
-        EGLint es;
+    EGLint n_configs;
+    const int *native_attrs = suppress_defaults ? NULL : default_attrs;
+    int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
+    int i = 0;
+    int n;
 
-        attrs[10] = EGL_RENDERABLE_TYPE;
-        attrs[12] = EGL_CONFORMANT;
-        if (ctx->api == GLCTX_API_OPENGL)
-            es = EGL_OPENGL_BIT;
-        else if (ctx->version_maj == 1)
-            es = EGL_OPENGL_ES_BIT;
-        else
-            es = EGL_OPENGL_ES2_BIT;
-        attrs[11] = attrs[13] = es;
+    if (attrs)
+    {
+        for (n = 0; attrs[n]; n += 2)
+        {
+            all_attrs[i++] = attrs[n];
+            all_attrs[i++] = attrs[n + 1];
+        }
     }
+    if (native_attrs)
+    {
+        for (n = 0; native_attrs[n]; n += 2)
+        {
+            all_attrs[i++] = native_attrs[n];
+            all_attrs[i++] = native_attrs[n + 1];
+        }
+    }
+    all_attrs[i] = 0;
     if (glctx__log != glctx__log_ignore)
     {
         int n;
+        int result = eglChooseConfig(ctx->display, all_attrs, 0, 0, &n_configs);
 
-        if (!eglChooseConfig(ctx->display, attrs, 0, 0, &n_configs)
-                || n_configs < 1)
+        if (!result || n_configs < 1)
         {
+            free(all_attrs);
+            glctx__log("glctx: No EGL configs available:\n");
             return GLCTX_ERROR_CONFIG;
         }
         glctx__log("glctx: %d EGL configs available:\n", n_configs);
         EGLConfig *configs = malloc(sizeof(EGLConfig) * n_configs);
-        eglChooseConfig(ctx->display, attrs, configs, n_configs, &n_configs);
+        eglChooseConfig(ctx->display, all_attrs,
+                configs, n_configs, &n_configs);
+        free(all_attrs);
+        int chosen = 0;
         for (n = 0; n < n_configs; ++n)
         {
             EGLint r, g, b, a, d;
+
+            if (!configs[n])
+            {
+                glctx__log("  Config %d is NULL!\n", n);
+                if (n == chosen)
+                    ++chosen;
+                continue;
+            }
             eglGetConfigAttrib(ctx->display, configs[n], EGL_RED_SIZE, &r);
             eglGetConfigAttrib(ctx->display, configs[n], EGL_GREEN_SIZE, &g);
             eglGetConfigAttrib(ctx->display, configs[n], EGL_BLUE_SIZE, &b);
             eglGetConfigAttrib(ctx->display, configs[n], EGL_ALPHA_SIZE, &a);
             eglGetConfigAttrib(ctx->display, configs[n], EGL_DEPTH_SIZE, &d);
-            glctx__log("  RGBA(%d%d%d%d), depth %d\n", r, g, b, a, d);
+            glctx__log("  %d, RGBA(%d%d%d%d), depth %d\n",
+                    n, r, g, b, a, d);
         }
-        ctx->config = configs[0];
+        if (chosen >= n_configs)
+        {
+            glctx__log("glctx: No EGL configs available:\n");
+            free(configs);
+            return GLCTX_ERROR_CONFIG;
+        }
+        *cfg_out = configs[chosen];
         free(configs);
     }
     else
     {
-        if (!eglChooseConfig(ctx->display, attrs, &ctx->config, 1, &n_configs)
-                || n_configs < 1)
+        int result = eglChooseConfig(ctx->display, all_attrs,
+                cfg_out, 1, &n_configs);
+        free(all_attrs);
+        if (!result || n_configs < 1)
         {
             return GLCTX_ERROR_CONFIG;
         }
@@ -117,26 +154,20 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     return GLCTX_ERROR_NONE;
 }
 
-void glctx_describe_config(GlctxHandle ctx,
-                           int *r, int *g, int *b, int *a, int *depth)
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
 {
-    if (r)
-        eglGetConfigAttrib(ctx->display, ctx->config, EGL_RED_SIZE, r);
-    if (g)
-        eglGetConfigAttrib(ctx->display, ctx->config, EGL_GREEN_SIZE, g);
-    if(b)
-        eglGetConfigAttrib(ctx->display, ctx->config, EGL_BLUE_SIZE, b);
-    if (a)
-        eglGetConfigAttrib(ctx->display, ctx->config, EGL_ALPHA_SIZE, a);
-    if (depth)
-        eglGetConfigAttrib(ctx->display, ctx->config, EGL_DEPTH_SIZE, depth);
+    EGLint val;
+
+    eglGetConfigAttrib(ctx->display, config, attr, &val);
+    return val;
 }
 
 #if defined(__ANDROID__)
-static GlctxError glctx_configure_platform(GlctxHandle ctx)
+static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
 {
     EGLint format;
-    if (!eglGetConfigAttrib(ctx->display, ctx->config,
+
+    if (!eglGetConfigAttrib(ctx->display, config,
             EGL_NATIVE_VISUAL_ID, &format))
     {
         glctx__log("glctx: Unable to configure Android window\n");
@@ -146,7 +177,7 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx)
     return GLCTX_ERROR_NONE;
 }
 #elif GLCTX_ENABLE_RPI
-static GlctxError glctx_configure_platform(GlctxHandle ctx)
+static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
 {
     static EGL_DISPMANX_WINDOW_T nativewindow;
     DISPMANX_ELEMENT_HANDLE_T dispman_element;
@@ -155,6 +186,8 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx)
     VC_RECT_T dst_rect;
     VC_RECT_T src_rect;
     uint32_t disp_w, disp_h;
+
+    (void) config;
 
     if (graphics_get_display_size(0 /* LCD */, &disp_w, &disp_h) < 0)
     {
@@ -186,50 +219,47 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx)
     return GLCTX_ERROR_NONE;
 }
 #else
-static GlctxError glctx_configure_platform(GlctxHandle ctx)
+static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
 {
     (void) ctx;
+    (void) config;
     return GLCTX_ERROR_NONE;
 }
 #endif
 
-GlctxError glctx_activate(GlctxHandle ctx)
+GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
+        GlctxWindow window, const int *attrs)
 {
     EGLenum eapi;
-    EGLint attrs[] = {
-            EGL_CONTEXT_CLIENT_VERSION, ctx->version_maj,
+    EGLint default_attrs[] = {
+            EGL_CONTEXT_CLIENT_VERSION, ctx->version,
             EGL_NONE
     };
     GlctxError result = GLCTX_ERROR_NONE;
 
-    switch (ctx->api)
-    {
-        case GLCTX_API_OPENGL:
-            eapi = EGL_OPENGL_API;
-            break;
-        case GLCTX_API_OPENGLES:
-            eapi = EGL_OPENGL_ES_API;
-            break;
-        default:
-            eapi = EGL_NONE;
-            break;
-    }
-    if (eapi != EGL_NONE && !eglBindAPI(eapi))
-        return GLCTX_ERROR_API;
+    ctx->window = window;
+    if (!attrs)
+        attrs = default_attrs;
+    if (ctx->profile == GLCTX_PROFILE_OPENGLES)
+        eapi = EGL_OPENGL_ES_API;
+    else
+        eapi = EGL_OPENGL_API;
+    if (!eglBindAPI(eapi))
+        return GLCTX_ERROR_PROFILE;
 
-    result = glctx_configure_platform(ctx);
+    result = glctx_configure_platform(ctx, config);
     if (result)
         return result;
 
-    ctx->surface = eglCreateWindowSurface(ctx->display, ctx->config,
-            (EGLNativeWindowType) ctx->window, 0);
+    ctx->surface = eglCreateWindowSurface(ctx->display, config,
+            (EGLNativeWindowType) window, 0);
     if (ctx->surface == EGL_NO_SURFACE)
     {
         glctx__log("glctx: Unable to create OpenGL(ES) surface with EGL\n");
         return GLCTX_ERROR_SURFACE;
     }
 
-    ctx->context = eglCreateContext(ctx->display, ctx->config,
+    ctx->context = eglCreateContext(ctx->display, config,
             EGL_NO_CONTEXT, attrs);
     if (ctx->context == EGL_NO_CONTEXT)
     {
@@ -240,6 +270,7 @@ GlctxError glctx_activate(GlctxHandle ctx)
     return glctx_bind(ctx);
 }
 
+#if 0
 int glctx_get_width(GlctxHandle ctx)
 {
     EGLint w;
@@ -261,6 +292,7 @@ int glctx_get_height(GlctxHandle ctx)
     }
     return h;
 }
+#endif
 
 void glctx_flip(GlctxHandle ctx)
 {
