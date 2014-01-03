@@ -1,7 +1,6 @@
 #include "glctx.h"
 
-const int glctx_version_major = GLCTX_VERSION_MAJOR;
-const int glctx_version_minor = GLCTX_VERSION_MINOR;
+#include <stdlib.h>
 
 int glctx__log_ignore(const char *format, ...)
 {
@@ -45,3 +44,23 @@ const char *glctx_get_error_name(GlctxError err)
     }
     return "GLCTX_ERROR_UNKNOWN";
 }
+
+int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs)
+{
+    int n_attrs = 0;
+    int n;
+
+    if (attrs)
+    {
+        for (n = 0; attrs[n]; n += 2)
+            ++n_attrs;
+    }
+    if (native_attrs)
+    {
+        for (n = 0; native_attrs[n]; n += 2)
+            ++n_attrs;
+    }
+    ++n_attrs;
+    return malloc(sizeof(int) * n_attrs);
+}
+

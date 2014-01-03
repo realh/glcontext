@@ -1,5 +1,3 @@
-#include <glctx/glctx.h>
-
 #ifdef ENABLE_OPENGL
 #include "GL/glew.h"
 #define MY_GL_VERSION_MINOR 1
@@ -7,6 +5,8 @@
 #include "GLES2/gl2.h"
 #define MY_GL_VERSION_MINOR 0
 #endif
+
+#include <glctx/glctx.h>
 
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
@@ -44,6 +44,27 @@ static GlctxHandle init_gl(void)
 {
     SDL_SysWMinfo wminfo;
     SDL_VERSION(&wminfo.version);
+    GlctxConfig config;
+    int cfg_attrs[] = {
+            GLCTX_CFG_RED_SIZE, 8,
+            GLCTX_CFG_GREEN_SIZE, 8,
+            GLCTX_CFG_BLUE_SIZE, 8,
+            GLCTX_CFG_END
+    };
+    int ctx_attrs[] = {
+            GLCTX_CTX_PROFILE, MY_GLCTX_CTX_PROFILE,
+            GLCTX_CTX_VERSION_MAJOR, 2,
+            GLCTX_CTX_VERSION_MINOR,
+#if GLCTX_ENABLE_OPENGL
+            1,
+#else
+            0,
+#endif
+            GLCTX_CTX_END
+    };
+    GlctxDisplay dpy;
+    GlctxWindow win;
+
     if (!SDL_GetWMInfo(&wminfo))
     {
         printf("SDL_GetWMInfo not implemented\n");
@@ -54,26 +75,27 @@ static GlctxHandle init_gl(void)
     GlctxHandle ctx;
     GlctxError err;
 #if defined (_WIN32)
-    err = glctx_init(EGL_DEFAULT_DISPLAY, wminfo.window, MY_GLCTX_API,
-            2, MY_GL_VERSION_MINOR, &ctx);
+    dpy = EGL_DEFAULT_DISPLAY
+    win = wminfo.window;;
 #else
-    err = glctx_init(wminfo.info.x11.display, wminfo.info.x11.window,
-            MY_GLCTX_API, 2, MY_GL_VERSION_MINOR, &ctx);
+    dpy = wminfo.info.x11.display;
+    win = wminfo.info.x11.window;
 #endif
+    err = glctx_init(dpy, win, &ctx);
     if (err)
     {
         printf("glctx_init failed: %s\n", glctx_get_error_name(err));
         exit(1);
     }
 
-    err = glctx_get_config(ctx, 8, 8, 8, 0, 0);
+    err = glctx_get_config(ctx, &config, cfg_attrs, 0);
     if (err)
     {
         printf("glctx_get_config failed: %s\n", glctx_get_error_name(err));
         exit(1);
     }
 
-    err = glctx_activate(ctx);
+    err = glctx_activate(ctx, config, win, ctx_attrs);
     if (err)
     {
         printf("glctx_activate failed: %s\n", glctx_get_error_name(err));
@@ -188,7 +210,7 @@ static GLuint load_shaders(GLint *coord2d_tag, GLint *angle_tag)
 #define COS30 0.8660254f
 #define SIN30 0.5f
 
-static void render_loop(GlctxHandle ctx)
+static void render_loop(GlctxHandle ctx, int w, int h)
 {
     int running = 1;
     static const GLfloat verts[] = {
@@ -200,10 +222,7 @@ static void render_loop(GlctxHandle ctx)
     GLuint vbo;
     GLuint prog;
     float angle = 0;
-    int w, h;
 
-    w = glctx_get_width(ctx);
-    h = glctx_get_height(ctx);
     if (w <= 0 || h <= 0)
     {
         printf("Unable to get screen size\n");
@@ -248,17 +267,34 @@ static void render_loop(GlctxHandle ctx)
 int main(int argc, char **argv)
 {
     GlctxHandle ctx;
+    SDL_Surface *surf;
+    int w, h;
+#if GLCTX_ENABLE_RPI
+    EGLDisplay edpy;
+    EGLSurface esurf;
+
+    bcm_host_init();
+#endif
 
     (void) argc;
     (void) argv;
 
-#if ENABLE_RPI
-    bcm_host_init();
-#endif
-
-    (void) init_sdl_window();
+    surf = init_sdl_window();
     ctx = init_gl();
-    render_loop(ctx);
+#if GLCTX_ENABLE_RPI
+    edpy = glctx_get_egl_display(ctx);
+    esurf = glctx_get_egl_surface(ctx);
+    if (!eglQuerySurface(edpy, esurf, EGL_WIDTH, &w) ||
+        !eglQuerySurface(edpy, esurf, EGL_HEIGHT, &h))
+    {
+        printf("Unable to get size of EGL surface\n");
+        w = h = 0;
+    }
+#else
+    w = surf->w;
+    h = surf->h;
+#endif
+    render_loop(ctx, w, h);
 
     return 0;
 }

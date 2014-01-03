@@ -7,75 +7,65 @@
 
 extern int (*glctx__log)(const char *format, ...);
 extern int glctx__log_ignore(const char *format, ...);
+extern int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs);
 
 struct GlctxData_ {
     Display *dpy;
     Window window;
     int screen;
     int width, height;
-    GlctxApiType api;
-    int version_maj;
-    int version_min;
-    GLXFBConfig fbc;
     GLXContext ctx;
 };
 
+static void glctx_bind_xwindow(GlctxHandle ctx, Window window)
+{
+    if (window)
+    {
+        XWindowAttributes attribs;
+        if (!XGetWindowAttributes(ctx->dpy, window, &attribs))
+        {
+            glctx__log("glctx: Unable to get window attributes\n");
+            window = 0;
+        }
+        ctx->screen = XScreenNumberOfScreen(attribs.screen);
+        ctx->width = attribs.width;
+        ctx->height = attribs.height;
+    }
+    ctx->window = window;
+    if (!window)
+    {
+        ctx->screen = XScreenNumberOfScreen(XDefaultScreenOfDisplay(ctx->dpy));
+        ctx->width = ctx->height = 0;
+    }
+}
+
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      GlctxApiType api, int version_maj, int version_min,
                       GlctxHandle *pctx)
 {
-    XWindowAttributes attribs;
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
 
     *pctx = NULL;
     if (!ctx)
         return GLCTX_ERROR_MEMORY;
-
-    if (!XGetWindowAttributes(display, window, &attribs))
-    {
-        glctx__log("glctx: Unable to get window attributes\n");
-        free(ctx);
-        return GLCTX_ERROR_WINDOW;
-    }
-
     ctx->dpy = display;
-    ctx->window = window;
-    ctx->screen = XScreenNumberOfScreen(attribs.screen);
-    ctx->width = attribs.width;
-    ctx->height = attribs.height;
-    ctx->api = api;
-    ctx->version_maj = version_maj;
-    ctx->version_min = version_min;
-    ctx->fbc = NULL;
-
+    glctx_bind_xwindow(ctx, window);
     *pctx = ctx;
-
     return GLCTX_ERROR_NONE;
 }
 
-GlctxApiType glctx_query_api_type(GlctxHandle ctx)
-{
-    return ctx->api ? ctx->api : GLCTX_API_OPENGL;
-}
-
-GlctxError glctx_get_config(GlctxHandle ctx,
-                            int r, int g, int b, int a, int depth)
+GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
+        const int *attrs, int suppress_defaults)
 {
     int fbc_count;
     GLXFBConfig* fbc;
-    int i;
+    int i, n;
     int best_nsamples = -1;
-    int attrs[] = {
+    int *all_attrs;
+    static const int default_native_attrs[] = {
         GLX_X_RENDERABLE    , True,
         GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
         GLX_RENDER_TYPE     , GLX_RGBA_BIT,
         GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
-        GLX_RED_SIZE        , r,
-        GLX_GREEN_SIZE      , g,
-        GLX_BLUE_SIZE       , b,
-        GLX_ALPHA_SIZE      , a,
-        GLX_DEPTH_SIZE      , depth,
-        GLX_DOUBLEBUFFER    , True,
         /*
         GLX_STENCIL_SIZE    , 8,
         GLX_SAMPLE_BUFFERS  , 1,
@@ -83,8 +73,29 @@ GlctxError glctx_get_config(GlctxHandle ctx,
         */
         None
     };
+    const int *native_attrs = suppress_defaults ? NULL : default_native_attrs;
 
-    fbc = glXChooseFBConfig(ctx->dpy, ctx->screen, attrs, &fbc_count);
+    all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
+    if (attrs)
+    {
+        for (n = 0; attrs[n]; n += 2)
+        {
+            all_attrs[i++] = attrs[n];
+            all_attrs[i++] = attrs[n + 1];
+        }
+    }
+    if (native_attrs)
+    {
+        for (n = 0; native_attrs[n]; n += 2)
+        {
+            all_attrs[i++] = native_attrs[n];
+            all_attrs[i++] = native_attrs[n + 1];
+        }
+    }
+    all_attrs[i] = 0;
+
+    fbc = glXChooseFBConfig(ctx->dpy, ctx->screen, all_attrs, &fbc_count);
+    free(all_attrs);
     if (!fbc)
     {
         glctx__log("glctx: Unable to get any matching GLX configs\n");
@@ -109,7 +120,7 @@ GlctxError glctx_get_config(GlctxHandle ctx,
 
             if (best_nsamples < 0 || (samp_buf && nsamples > best_nsamples))
             {
-                ctx->fbc = fbc[i];
+                *cfg_out = fbc[i];
                 best_nsamples = nsamples;
             }
         }
@@ -124,19 +135,12 @@ GlctxError glctx_get_config(GlctxHandle ctx,
     return GLCTX_ERROR_NONE;
 }
 
-void glctx_describe_config(GlctxHandle ctx,
-                           int *r, int *g, int *b, int *a, int *depth)
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
 {
-    if (r)
-        glXGetFBConfigAttrib(ctx->dpy, ctx->fbc, GLX_RED_SIZE, r);
-    if (g)
-        glXGetFBConfigAttrib(ctx->dpy, ctx->fbc, GLX_GREEN_SIZE, g);
-    if(b)
-        glXGetFBConfigAttrib(ctx->dpy, ctx->fbc, GLX_BLUE_SIZE, b);
-    if (a)
-        glXGetFBConfigAttrib(ctx->dpy, ctx->fbc, GLX_ALPHA_SIZE, a);
-    if (depth)
-        glXGetFBConfigAttrib(ctx->dpy, ctx->fbc, GLX_DEPTH_SIZE, depth);
+    int val;
+
+    glXGetFBConfigAttrib(ctx->dpy, config, attr, &val);
+    return val;
 }
 
 static int glctx_glx_supports_extension(const char *extensions, const char *ext)
@@ -165,28 +169,10 @@ typedef GLXContext (*glXCreateContextAttribsARBProc)
 static glXCreateContextAttribsARBProc glXCreateContextAttribsARB = NULL;
 static const char *glctx_glx_extensions = NULL;
 
-#ifndef GLX_CONTEXT_MAJOR_VERSION_ARB
-#define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
-#endif
-#ifndef GLX_CONTEXT_MINOR_VERSION_ARB
-#define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
-#endif
-#ifndef GLX_CONTEXT_PROFILE_MASK_ARB
-#define GLX_CONTEXT_PROFILE_MASK_ARB        0x9126
-#endif
-#ifndef GLX_CONTEXT_ES_PROFILE_BIT_EXT
-#define GLX_CONTEXT_ES_PROFILE_BIT_EXT      0x0004
-#endif
-
-GlctxError glctx_activate(GlctxHandle ctx)
+GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
+        GlctxWindow window, const int *attrs)
 {
-    int attrs[] = {
-        GLX_CONTEXT_MAJOR_VERSION_ARB, ctx->version_maj,
-        GLX_CONTEXT_MINOR_VERSION_ARB, ctx->version_min,
-        GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_ES_PROFILE_BIT_EXT,
-        None
-      };
-
+    glctx_bind_xwindow(ctx, window);
     if (!glctx_glx_extensions)
     {
         glctx_glx_extensions = glXQueryExtensionsString(ctx->dpy,
@@ -205,23 +191,9 @@ GlctxError glctx_activate(GlctxHandle ctx)
         glctx__log("glctx: GLX_ARB_create_context not supported\n");
         return GLCTX_ERROR_CONTEXT;
     }
-    if (ctx->api == GLCTX_API_OPENGLES)
-    {
-        if (!glctx_glx_supports_extension(glctx_glx_extensions,
-                    "GLX_ARB_create_context_profile"))
-        {
-             glctx__log("glctx: GLX_ARB_create_context_profile not supported "
-                    "(required for OpenGL ES)\n");
-            return GLCTX_ERROR_API;
-        }
-    }
-    else
-    {
-        attrs[4] = None;
-    }
 
     glctx__log("glctx: Creating context\n");
-    ctx->ctx = glXCreateContextAttribsARB(ctx->dpy, ctx->fbc,
+    ctx->ctx = glXCreateContextAttribsARB(ctx->dpy, config,
             0, True, attrs);
     if (!ctx->ctx)
     {
@@ -237,6 +209,12 @@ GlctxError glctx_activate(GlctxHandle ctx)
     return glctx_bind(ctx);
 }
 
+GlctxNativeContext glctx_get_native_context(GlctxHandle ctx)
+{
+    return ctx->ctx;
+}
+
+#if 0
 int glctx_get_width(GlctxHandle ctx)
 {
     return ctx->width;
@@ -246,6 +224,7 @@ int glctx_get_height(GlctxHandle ctx)
 {
     return ctx->height;
 }
+#endif
 
 void glctx_flip(GlctxHandle ctx)
 {
@@ -260,9 +239,7 @@ GlctxError glctx_unbind(GlctxHandle ctx)
 
 GlctxError glctx_bind(GlctxHandle ctx)
 {
-    glctx__log("glctx: Binding context\n");
     glXMakeCurrent(ctx->dpy, ctx->window, ctx->ctx);
-    glctx__log("glctx: Bound context\n");
     return GLCTX_ERROR_NONE;
 }
 

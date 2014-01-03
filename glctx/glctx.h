@@ -1,10 +1,10 @@
 #ifndef GLCTX_H
 #define GLCTX_H
 
-#if defined __ANDROID__
-#include "glctx-config-android.h"
-#else
 #include <glctx/glctx-config.h>
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /*
@@ -15,6 +15,11 @@
 /*
  * GlctxWindow
  * Platform's native window type
+ */
+
+/*
+ * GlctxConfig
+ * Platform's native config type
  */
 
 #if defined __ANDROID__
@@ -30,8 +35,16 @@ typedef HDC GlctxDisplay;
 typedef HWND GlctxWindow;
 #endif
 
-#ifdef __cplusplus
-extern "C" {
+#if GLCTX_ENABLE_EGL
+#include <EGL/egl.h>
+typedef EGLConfig GlctxConfig;
+typedef EGLContext GlctxNativeContext;
+#elif GLCTX_ENABLE_GLX
+#include <GL/glx.h>
+typedef GLXFBConfig GlctxConfig;
+typedef GLXContext GlctxNativeContext;
+#elif GLCTX_ENABLE_WGL
+/* ... */
 #endif
 
 /*
@@ -50,17 +63,52 @@ typedef enum {
     GLCTX_ERROR_API         /* Unable to bind API type */
 } GlctxError;
 
+
 /*
- * GlctxApiType
- * Target API, OpenGL or OpenGL ES. DEFAULT is not recommended because you
- * have to decide between them at compile time to choose which headers to
- * include (eg GLES2/gl2.h vs using GLEW or similar).
+ * Attribute codes of a config.
  */
-typedef enum {
-    GLCTX_API_DEFAULT,
-    GLCTX_API_OPENGL,
-    GLCTX_API_OPENGLES
-} GlctxApiType;
+#define GLCTX_CFG_END           0
+
+#if GLCTX_ENABLE_EGL
+#define GLCTX_CFG_RED_SIZE      EGL_RED_SIZE
+#define GLCTX_CFG_GREEN_SIZE    EGL_GREEN_SIZE
+#define GLCTX_CFG_BLUE_SIZE     EGL_BLUE_SIZE
+#define GLCTX_CFG_ALPHA_SIZE    EGL_ALPHA_SIZE
+#define GLCTX_CFG_DEPTH_SIZE    EGL_DEPTH_SIZE
+#elif GLCTX_ENABLE_GLX
+#define GLCTX_CFG_RED_SIZE      GLX_RED_SIZE
+#define GLCTX_CFG_GREEN_SIZE    GLX_GREEN_SIZE
+#define GLCTX_CFG_BLUE_SIZE     GLX_BLUE_SIZE
+#define GLCTX_CFG_ALPHA_SIZE    GLX_ALPHA_SIZE
+#define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
+#endif
+
+/*
+ * Attribute codes of a context.
+ */
+#define GLCTX_CTX_END               0
+
+#if GLCTX_ENABLE_EGL
+#define GLCTX_CTX_PROFILE           1
+#define GLCTX_CTX_VERSION_MAJOR     2
+#define GLCTX_CTX_VERSION_MINOR     3
+#elif GLCTX_ENABLE_GLX
+#define GLCTX_CTX_PROFILE           0x9126
+#define GLCTX_CTX_VERSION_MAJOR     0x2091
+#define GLCTX_CTX_VERSION_MINOR     0x2092
+#endif
+
+#if GLCTX_ENABLE_EGL
+#define GLCTX_CTX_PROFILE_OPENGLES  1
+#define GLCTX_CTX_PROFILE_OPENGL    2   /* Don't care about core/compat */
+#define GLCTX_CTX_PROFILE_CORE      3   /* OpenGL */
+#define GLCTX_CTX_PROFILE_COMPAT    4   /* OpenGL */
+#elif GLCTX_ENABLE_GLX
+#define GLCTX_CTX_PROFILE_OPENGLES  0x0004
+#define GLCTX_CTX_PROFILE_OPENGL    0x0001
+#define GLCTX_CTX_PROFILE_CORE      0x0001
+#define GLCTX_CTX_PROFILE_COMPAT    0x0002
+#endif
 
 /*
  * GlctxLogFunction
@@ -70,16 +118,6 @@ typedef enum {
  * inlcuded in the prototype so you can use printf without a wrapper.
  */
 typedef int (*GlctxLogFunction)(const char *format, ...);
-
-/*
- * glctx_version_major
- */
-extern const int glctx_version_major;
-
-/*
- * glctx_version_minor
- */
-extern const int glctx_version_minor;
 
 /*
  * glctx_set_log_function
@@ -103,65 +141,58 @@ const char *glctx_get_error_name(GlctxError err);
 
 /*
  * glctx_init
- * Initialise glcontext.
+ * Initialise glcontext. If you are adding OpenGL to an existing window you
+ * can pass in its handle here, which may help GLX get the right screen,
+ * otherwise 0/NULL.
  *
  * display:     Native display
- * window:      Native window
- * api:         API type, see comment for typedef
- * version_maj: OpenGL(ES) major version
- * version_min: OpenGL(ES) minor version
+ * window:      Native window or 0/NULL
  * pctx:        glcontext handle (out)
  */
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      GlctxApiType api, int version_maj, int version_min,
                       GlctxHandle *pctx);
-
-/*
- * glctx_query_api_type
- * Gets the current API type. If it returns GLCTX_API_DEFAULT
- * this is indicative of an error.
- */
-GlctxApiType glctx_query_api_type(GlctxHandle ctx);
 
 /*
  * glctx_get_config
  * Get best matching GL config
  *
  * ctx:         The context to shut down
- * r, g, b, a:  Size in bits of each component of a pixel
- * depth:       Size in bits of each word in depth buffer
+ * cfg_out:     A config is returned here
+ * attrs:       List of pairs of (attr, value), terminated by NONE
+ * suppress_defaults:   Usually this function adds suitable attributes for the
+ *                      platform. Pass != 0 here to prevent them.
  */
-GlctxError glctx_get_config(GlctxHandle ctx,
-                            int r, int g, int b, int a, int depth);
+GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
+        const int *attrs, int suppress_defaults);
 
 /*
- * glctx_describe_config
- * Describe last chosen config. Params other than ctx may be NULL to ignore
- *
- * ctx:         The context to shut down
- * r, g, b, a:  Size in bits of each component of a pixel (out)
- * depth:       Size in bits of each word in depth buffer (out)
+ * glctx_query_config
+ * Get a config attribute
  */
-void glctx_describe_config(GlctxHandle ctx,
-                           int *r, int *g, int *b, int *a, int *depth);
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr);
 
 /*
  * glctx_activate
- * Activate a context after a config has been chosen successfully
+ * Activate a context with a given config in a given window. On Windows and
+ * Linux (excluding RPi) it's your responsibility to make sure the window
+ * matches the config.
+ *
+ * attrs:       List of pairs of (GlctxContextAttr, value), terminated by NONE
  */
-GlctxError glctx_activate(GlctxHandle ctx);
+GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
+        GlctxWindow window, const int *attrs);
 
 /*
- * glctx_get_width
- * Gets the width of the surface in pixels
+ * glctx_get_native_context
+ * Gets the underlying EGL, GLX or WGL context
  */
-int glctx_get_width(GlctxHandle ctx);
+GlctxNativeContext glctx_get_native_context(GlctxHandle ctx);
 
-/*
- * glctx_get_height
- * Gets the height of the surface in pixels
- */
-int glctx_get_height(GlctxHandle ctx);
+#if GLCTX_ENABLE_EGL
+EGLDisplay glctx_get_egl_display(GlctxHandle ctx);
+
+EGLSurface glctx_get_egl_surface(GlctxHandle ctx);
+#endif
 
 /*
  * glctx_flip
