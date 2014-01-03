@@ -15,6 +15,8 @@ struct GlctxData_ {
     int screen;
     int width, height;
     GLXContext ctx;
+    int profile;
+    int maj_version, min_version;
 };
 
 static void glctx_bind_xwindow(GlctxHandle ctx, Window window)
@@ -40,6 +42,7 @@ static void glctx_bind_xwindow(GlctxHandle ctx, Window window)
 }
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
+                      int profile, int maj_version, int min_version,
                       GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
@@ -49,6 +52,9 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
         return GLCTX_ERROR_MEMORY;
     ctx->dpy = display;
     glctx_bind_xwindow(ctx, window);
+    ctx->profile = profile;
+    ctx->maj_version = maj_version;
+    ctx->min_version = min_version;
     *pctx = ctx;
     return GLCTX_ERROR_NONE;
 }
@@ -172,6 +178,15 @@ static const char *glctx_glx_extensions = NULL;
 GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs)
 {
+    int default_attrs[] = {
+            0x9126, ctx->profile,
+            0x2091, ctx->maj_version,
+            0x2092, ctx->min_version,
+            0
+    };
+    if (!attrs)
+        attrs = default_attrs;
+
     glctx_bind_xwindow(ctx, window);
     if (!glctx_glx_extensions)
     {

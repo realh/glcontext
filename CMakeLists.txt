@@ -146,7 +146,7 @@ if(ENABLE_TESTS)
         if(OPENGL_FOUND)
             add_executable(glctx-testgl tests/glctx-test.c)
             target_compile_definitions(glctx-testgl PUBLIC
-                    -DMY_GLCTX_CTX_PROFILE=GLCTX_CTX_PROFILE_OPENGL
+                    -DMY_GLCTX_PROFILE=GLCTX_PROFILE_OPENGL
                     -DENABLE_OPENGL)
             target_include_directories(glctx-testgl PUBLIC
                     ${GLEW_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR})
@@ -156,7 +156,7 @@ if(ENABLE_TESTS)
         if(GLESV2_FOUND)
             add_executable(glctx-testgles tests/glctx-test.c)
             target_compile_definitions(glctx-testgles PUBLIC
-                    -DMY_GLCTX_CTX_PROFILE=GLCTX_CTX_PROFILE_OPENGLES
+                    -DMY_GLCTX_PROFILE=GLCTX_PROFILE_OPENGLES
                     -DENABLE_OPENGLES)
             target_include_directories(glctx-testgles PUBLIC
                     ${GLESv2_INCLUDE_DIR})

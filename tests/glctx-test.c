@@ -51,17 +51,6 @@ static GlctxHandle init_gl(void)
             GLCTX_CFG_BLUE_SIZE, 8,
             GLCTX_CFG_END
     };
-    int ctx_attrs[] = {
-            GLCTX_CTX_PROFILE, MY_GLCTX_CTX_PROFILE,
-            GLCTX_CTX_VERSION_MAJOR, 2,
-            GLCTX_CTX_VERSION_MINOR,
-#if GLCTX_ENABLE_OPENGL
-            1,
-#else
-            0,
-#endif
-            GLCTX_CTX_END
-    };
     GlctxDisplay dpy;
     GlctxWindow win;
 
@@ -81,7 +70,13 @@ static GlctxHandle init_gl(void)
     dpy = wminfo.info.x11.display;
     win = wminfo.info.x11.window;
 #endif
-    err = glctx_init(dpy, win, &ctx);
+    err = glctx_init(dpy, win, MY_GLCTX_PROFILE, 2,
+#if GLCTX_ENABLE_OPENGL
+            1,
+#else
+            0,
+#endif
+            &ctx);
     if (err)
     {
         printf("glctx_init failed: %s\n", glctx_get_error_name(err));
@@ -95,7 +90,7 @@ static GlctxHandle init_gl(void)
         exit(1);
     }
 
-    err = glctx_activate(ctx, config, win, ctx_attrs);
+    err = glctx_activate(ctx, config, win, NULL);
     if (err)
     {
         printf("glctx_activate failed: %s\n", glctx_get_error_name(err));

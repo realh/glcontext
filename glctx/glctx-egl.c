@@ -12,20 +12,16 @@
 
 extern int (*glctx__log)(const char *format, ...);
 extern int glctx__log_ignore(const char *format, ...);
+extern int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs);
 
 struct GlctxData_ {
     EGLDisplay display;
     EGLSurface surface;
     EGLContext context;
     GlctxWindow window;
-    GlctxApiType api;
-    int version_maj;
-    int version_min;
-    EGLConfig config;
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      GlctxApiType api, int version_maj, int version_min,
                       GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
@@ -49,36 +45,20 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     }
     *pctx = ctx;
     ctx->window = window;
-    ctx->api = api;
-    ctx->version_maj = version_maj;
-    ctx->version_min = version_min;
     ctx->config = 0;
     glctx__log("glctx: Initialised display with EGL %d.%d\n", emaj, emin);
+#if 0
     if (!ctx->api && eglQueryAPI() == EGL_NONE)
     {
         /* EGL_NONE means ES is not supported, better force GL */
         ctx->api = GLCTX_API_OPENGL;
     }
+#endif
     return GLCTX_ERROR_NONE;
 }
 
-GlctxApiType glctx_query_api_type(GlctxHandle ctx)
-{
-    (void) ctx;
-    switch (eglQueryAPI())
-    {
-        case EGL_OPENGL_ES_API:
-            return GLCTX_API_OPENGLES;
-        case EGL_OPENGL_API:
-            return GLCTX_API_OPENGL;
-        default:
-            break;
-    }
-    return GLCTX_API_DEFAULT;
-}
-
-GlctxError glctx_get_config(GlctxHandle ctx,
-                            int r, int g, int b, int a, int depth)
+GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
+        const int *attrs, int suppress_defaults)
 {
     EGLint n_configs;
     EGLint attrs[] = {

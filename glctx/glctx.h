@@ -83,31 +83,17 @@ typedef enum {
 #define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
 #endif
 
-/*
- * Attribute codes of a context.
- */
-#define GLCTX_CTX_END               0
-
+/* Values for glctx_init's profile argument */
 #if GLCTX_ENABLE_EGL
-#define GLCTX_CTX_PROFILE           1
-#define GLCTX_CTX_VERSION_MAJOR     2
-#define GLCTX_CTX_VERSION_MINOR     3
+#define GLCTX_PROFILE_OPENGLES  1
+#define GLCTX_PROFILE_OPENGL    2   /* Don't care about core/compat */
+#define GLCTX_PROFILE_CORE      3   /* OpenGL */
+#define GLCTX_PROFILE_COMPAT    4   /* OpenGL */
 #elif GLCTX_ENABLE_GLX
-#define GLCTX_CTX_PROFILE           0x9126
-#define GLCTX_CTX_VERSION_MAJOR     0x2091
-#define GLCTX_CTX_VERSION_MINOR     0x2092
-#endif
-
-#if GLCTX_ENABLE_EGL
-#define GLCTX_CTX_PROFILE_OPENGLES  1
-#define GLCTX_CTX_PROFILE_OPENGL    2   /* Don't care about core/compat */
-#define GLCTX_CTX_PROFILE_CORE      3   /* OpenGL */
-#define GLCTX_CTX_PROFILE_COMPAT    4   /* OpenGL */
-#elif GLCTX_ENABLE_GLX
-#define GLCTX_CTX_PROFILE_OPENGLES  0x0004
-#define GLCTX_CTX_PROFILE_OPENGL    0x0001
-#define GLCTX_CTX_PROFILE_CORE      0x0001
-#define GLCTX_CTX_PROFILE_COMPAT    0x0002
+#define GLCTX_PROFILE_OPENGLES  0x0004
+#define GLCTX_PROFILE_OPENGL    0x0001
+#define GLCTX_PROFILE_CORE      0x0001
+#define GLCTX_PROFILE_COMPAT    0x0002
 #endif
 
 /*
@@ -147,9 +133,13 @@ const char *glctx_get_error_name(GlctxError err);
  *
  * display:     Native display
  * window:      Native window or 0/NULL
+ * profile:     One of the GLCTX_CTX_PROFILE_ constants
+ * maj_version: Desired OpenGL major version
+ * min_version: Desired OpenGL minor version
  * pctx:        glcontext handle (out)
  */
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
+                      int profile, int maj_version, int min_version,
                       GlctxHandle *pctx);
 
 /*
