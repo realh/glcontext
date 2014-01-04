@@ -81,6 +81,7 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     const int *native_attrs = suppress_defaults ? NULL : default_attrs;
     int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
 
+    i = 0;
     if (attrs)
     {
         for (n = 0; attrs[n]; n += 2)
