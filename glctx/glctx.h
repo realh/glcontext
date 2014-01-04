@@ -75,12 +75,16 @@ typedef enum {
 #define GLCTX_CFG_BLUE_SIZE     EGL_BLUE_SIZE
 #define GLCTX_CFG_ALPHA_SIZE    EGL_ALPHA_SIZE
 #define GLCTX_CFG_DEPTH_SIZE    EGL_DEPTH_SIZE
+#define GLCTX_CFG_STENCIL_SIZE  EGL_STENCIL_SIZE
 #elif GLCTX_ENABLE_GLX
 #define GLCTX_CFG_RED_SIZE      GLX_RED_SIZE
 #define GLCTX_CFG_GREEN_SIZE    GLX_GREEN_SIZE
 #define GLCTX_CFG_BLUE_SIZE     GLX_BLUE_SIZE
 #define GLCTX_CFG_ALPHA_SIZE    GLX_ALPHA_SIZE
 #define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
+#define GLCTX_CFG_STENCIL_SIZE  GLX_STENCIL_SIZE
+#elif GLCTX_ENABLE_WGL
+/* ... */
 #endif
 
 /* Values for glctx_init's profile argument */
@@ -94,6 +98,8 @@ typedef enum {
 #define GLCTX_PROFILE_OPENGL    0x0001
 #define GLCTX_PROFILE_CORE      0x0001
 #define GLCTX_PROFILE_COMPAT    0x0002
+#elif GLCTX_ENABLE_WGL
+/* ... */
 #endif
 
 /*
