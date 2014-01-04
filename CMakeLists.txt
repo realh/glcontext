@@ -12,7 +12,8 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(ENABLE_TESTS "Build tests" ON)
 
 if(NOT MSVC)
-    add_compile_options(-Wall -Wextra -Wunused -Wwrite-strings)
+    # add_compile_options would be better, but it's too new
+    add_definitions(-Wall -Wextra -Wunused -Wwrite-strings)
 endif()
 
 
