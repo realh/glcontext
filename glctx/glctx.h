@@ -1,7 +1,7 @@
 #ifndef GLCTX_H
 #define GLCTX_H
 
-#include <glctx/glctx-config.h>
+#include "glctx/glctx-config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +44,8 @@ typedef EGLContext GlctxNativeContext;
 typedef GLXFBConfig GlctxConfig;
 typedef GLXContext GlctxNativeContext;
 #elif GLCTX_ENABLE_WGL
-/* ... */
+typedef int GlctxConfig;
+typedef HGLRC GlctxNativeContext;
 #endif
 
 /*
@@ -84,7 +85,12 @@ typedef enum {
 #define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
 #define GLCTX_CFG_STENCIL_SIZE  GLX_STENCIL_SIZE
 #elif GLCTX_ENABLE_WGL
-/* ... */
+#define GLCTX_CFG_RED_SIZE      1
+#define GLCTX_CFG_GREEN_SIZE    2
+#define GLCTX_CFG_BLUE_SIZE     3
+#define GLCTX_CFG_ALPHA_SIZE    4
+#define GLCTX_CFG_DEPTH_SIZE    5
+#define GLCTX_CFG_STENCIL_SIZE  6
 #endif
 
 /* Values for glctx_init's profile argument */
@@ -99,7 +105,10 @@ typedef enum {
 #define GLCTX_PROFILE_CORE      0x0001
 #define GLCTX_PROFILE_COMPAT    0x0002
 #elif GLCTX_ENABLE_WGL
-/* ... */
+#define GLCTX_PROFILE_OPENGLES  0x0004
+#define GLCTX_PROFILE_OPENGL    0x0001
+#define GLCTX_PROFILE_CORE      0x0001
+#define GLCTX_PROFILE_COMPAT    0x0002
 #endif
 
 /*

@@ -6,10 +6,10 @@
 #define MY_GL_VERSION_MINOR 0
 #endif
 
-#include <glctx/glctx.h>
+#include "glctx/glctx.h"
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_syswm.h>
+#include "SDL/SDL.h"
+#include "SDL/SDL_syswm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,8 +17,10 @@
 
 static SDL_Surface *init_sdl_window()
 {
+	SDL_Surface *surf;
+
     SDL_Init(SDL_INIT_EVERYTHING);
-    SDL_Surface *surf = SDL_SetVideoMode(640, 480, 0, 0);
+    surf = SDL_SetVideoMode(640, 480, 0, 0);
     if (!surf)
     {
         printf("Failed to create SDL window\n");
@@ -27,10 +29,11 @@ static SDL_Surface *init_sdl_window()
     return surf;
 }
 
-#if !ENABLE_OPENGLES
+#if !GLCTX_ENABLE_OPENGLES
 static void init_glew(void)
 {
     GLenum err = glewInit();
+
     if (GLEW_OK != err)
     {
         printf("glewInit failed: %s\n", glewGetErrorString(err));
@@ -43,8 +46,8 @@ static void init_glew(void)
 static GlctxHandle init_gl(void)
 {
     SDL_SysWMinfo wminfo;
-    SDL_VERSION(&wminfo.version);
-    GlctxConfig config;
+	GlctxConfig config;
+
     int cfg_attrs[] = {
             GLCTX_CFG_RED_SIZE, 8,
             GLCTX_CFG_GREEN_SIZE, 8,
@@ -54,19 +57,20 @@ static GlctxHandle init_gl(void)
     };
     GlctxDisplay dpy;
     GlctxWindow win;
+    GlctxHandle ctx;
+    GlctxError err;
 
-    if (!SDL_GetWMInfo(&wminfo))
+	SDL_VERSION(&wminfo.version);
+	if (!SDL_GetWMInfo(&wminfo))
     {
         printf("SDL_GetWMInfo not implemented\n");
         exit(1);
     }
 
     glctx_set_log_function(printf);
-    GlctxHandle ctx;
-    GlctxError err;
 #if defined (_WIN32)
-    dpy = EGL_DEFAULT_DISPLAY
-    win = wminfo.window;;
+    dpy = GetDC(wminfo.window);
+    win = wminfo.window;
 #else
     dpy = wminfo.info.x11.display;
     win = wminfo.info.x11.window;
@@ -112,6 +116,7 @@ static void check_shader_build(GLuint shader, GLenum status_pname,
         int link, const char *msg)
 {
     GLint status = GL_TRUE;
+
     if (link)
         glGetProgramiv(shader, status_pname, &status);
     else
@@ -119,14 +124,24 @@ static void check_shader_build(GLuint shader, GLenum status_pname,
     if (status == GL_FALSE)
     {
         GLint len;
+		size_t l;
+		char *logstr;
+
         if (link)
             glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &len);
         else
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
-        size_t l = strlen(msg);
-        char *logstr = malloc(l + len + 1);
+        l = strlen(msg);
+        logstr = (char *) malloc(l + len + 1);
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
         strcpy(logstr, msg);
-        if (link)
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif  
+		if (link)
             glGetProgramInfoLog(shader, len, 0, (GLchar *) logstr + l);
         else
             glGetShaderInfoLog(shader, len, 0, (GLchar *) logstr + l);
@@ -240,6 +255,8 @@ static void render_loop(GlctxHandle ctx, int w, int h)
 
     while (running)
     {
+        SDL_Event ev;
+
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(prog);
         glVertexAttrib1f(angle_tag, angle);
@@ -249,7 +266,6 @@ static void render_loop(GlctxHandle ctx, int w, int h)
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glDisableVertexAttribArray(coord2d);
         glctx_flip(ctx);
-        SDL_Event ev;
         if (SDL_PollEvent(&ev) && (ev.type == SDL_QUIT
                 || (ev.type == SDL_KEYDOWN
                         && ev.key.keysym.sym == SDLK_ESCAPE)))
