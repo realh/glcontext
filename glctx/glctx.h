@@ -67,51 +67,30 @@ typedef enum {
 
 
 /*
+ * GlctxAttr
  * Attribute codes of a config.
  */
-#if GLCTX_ENABLE_EGL
-#define GLCTX_CFG_RED_SIZE      EGL_RED_SIZE
-#define GLCTX_CFG_GREEN_SIZE    EGL_GREEN_SIZE
-#define GLCTX_CFG_BLUE_SIZE     EGL_BLUE_SIZE
-#define GLCTX_CFG_ALPHA_SIZE    EGL_ALPHA_SIZE
-#define GLCTX_CFG_DEPTH_SIZE    EGL_DEPTH_SIZE
-#define GLCTX_CFG_STENCIL_SIZE  EGL_STENCIL_SIZE
-#define GLCTX_CFG_NONE          EGL_NONE
-#elif GLCTX_ENABLE_GLX
-#define GLCTX_CFG_RED_SIZE      GLX_RED_SIZE
-#define GLCTX_CFG_GREEN_SIZE    GLX_GREEN_SIZE
-#define GLCTX_CFG_BLUE_SIZE     GLX_BLUE_SIZE
-#define GLCTX_CFG_ALPHA_SIZE    GLX_ALPHA_SIZE
-#define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
-#define GLCTX_CFG_STENCIL_SIZE  GLX_STENCIL_SIZE
-#define GLCTX_CFG_NONE          None
-#elif GLCTX_ENABLE_WGL
-#define GLCTX_CFG_RED_SIZE      1
-#define GLCTX_CFG_GREEN_SIZE    2
-#define GLCTX_CFG_BLUE_SIZE     3
-#define GLCTX_CFG_ALPHA_SIZE    4
-#define GLCTX_CFG_DEPTH_SIZE    5
-#define GLCTX_CFG_STENCIL_SIZE  6
-#define GLCTX_CFG_NONE          0
-#endif
+typedef enum {
+    GLCTX_CFG_NONE,
+    GLCTX_CFG_RED_SIZE,
+    GLCTX_CFG_GREEN_SIZE,
+    GLCTX_CFG_BLUE_SIZE,
+    GLCTX_CFG_ALPHA_SIZE,
+    GLCTX_CFG_DEPTH_SIZE,
+    GLCTX_CFG_STENCIL_SIZE
+} GlctxAttr;
 
-/* Values for glctx_init's profile argument */
-#if GLCTX_ENABLE_EGL
-#define GLCTX_PROFILE_OPENGLES  1
-#define GLCTX_PROFILE_OPENGL    2   /* Don't care about core/compat */
-#define GLCTX_PROFILE_CORE      3   /* OpenGL */
-#define GLCTX_PROFILE_COMPAT    4   /* OpenGL */
-#elif GLCTX_ENABLE_GLX
-#define GLCTX_PROFILE_OPENGLES  0x0004
-#define GLCTX_PROFILE_OPENGL    0x0001
-#define GLCTX_PROFILE_CORE      0x0001
-#define GLCTX_PROFILE_COMPAT    0x0002
-#elif GLCTX_ENABLE_WGL
-#define GLCTX_PROFILE_OPENGLES  0x0004
-#define GLCTX_PROFILE_OPENGL    0x0001
-#define GLCTX_PROFILE_CORE      0x0001
-#define GLCTX_PROFILE_COMPAT    0x0002
-#endif
+/*
+ * GlctxProfile
+ * OpenGL/ES profile/compatibility type
+ */
+typedef enum {
+    GLCTX_PROFILE_NONE,         /* Not really useful */
+    GLCTX_PROFILE_OPENGLES,     /* OpenGL ES */
+    GLCTX_PROFILE_OPENGL,       /* Don't care about core/compat */
+    GLCTX_PROFILE_CORE,         /* OpenGL */
+    GLCTX_PROFILE_COMPAT        /* OpenGL */
+} GlctxProfile;
 
 /*
  * GlctxLogFunction
@@ -156,31 +135,32 @@ const char GLCTX_EXPORT *glctx_get_error_name(GlctxError err);
  * pctx:        glcontext handle (out)
  */
 GlctxError GLCTX_EXPORT glctx_init(GlctxDisplay display, GlctxWindow window,
-        int profile, int maj_version, int min_version,
+        GlctxProfile profile, int maj_version, int min_version,
         GlctxHandle *pctx);
 
 /*
  * glctx_get_config
  * Get best matching GL config
  *
- * ctx:         The context to shut down
- * cfg_out:     A config is returned here
- * attrs:       List of pairs of (attr, value), terminated by GLCTX_CFG_NONE
- *              (which is not necessarily 0). You may mix GLCTX_CFG_* with
- *              platform's natives, but the latter is not recommended except
- *              for experts
- * suppress_defaults:   Usually this function adds suitable attributes for the
- *                      platform. Pass != 0 here to prevent them (expert).
+ * ctx:             The context to shut down
+ * cfg_out:         A config is returned here
+ * attrs:           List of pairs of (GlctxAttr, value), terminated by
+ *                  GLCTX_CFG_NONE.
+ * native_attrs:    If non-zero this indicates that the attributes use codes
+ *                  defined by the underlying implementation (EGL or GLX). Has
+ *                  no effect with WGL. For experts only. Bear in mind the
+ *                  terminator may not be 0 (for instance EGL_NONE seems to be
+ *                  NZ on Raspberry Pi).
  */
 GlctxError GLCTX_EXPORT glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
-        const int *attrs, int suppress_defaults);
+        const int *attrs, int native_attrs);
 
 /*
  * glctx_query_config
  * Get a config attribute
  */
 int GLCTX_EXPORT glctx_query_config(GlctxHandle ctx, GlctxConfig config,
-        int attr);
+        GlctxAttr attr);
 
 /*
  * glctx_activate
@@ -188,9 +168,9 @@ int GLCTX_EXPORT glctx_query_config(GlctxHandle ctx, GlctxConfig config,
  * Linux (excluding RPi) it's your responsibility to make sure the window
  * matches the config.
  *
- * attrs:       List of pairs of (context_attr, value), terminated by NONE;
- *              non-NULL suppresses default, usually used for profile.
- *              (Experts only).
+ * attrs:       List of pairs of (native_context_attr, value), terminated by
+ *              implementation's NONE; non-NULL suppresses default, usually
+ *              used for profile. (Experts only).
  */
 GlctxError GLCTX_EXPORT glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs);

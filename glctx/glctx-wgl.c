@@ -5,19 +5,27 @@
 
 extern int (*glctx__log)(const char *format, ...);
 extern int glctx__log_ignore(const char *format, ...);
-extern int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs);
+extern int *glctx__make_attrs_buffer(const int *attrs,
+        const int *native_attrs, int native_attr_term);
+
+static int glctx__profile_table[] = {
+    0x0004,
+    0x0001,
+    0x0001,
+    0x0002
+};
 
 struct GlctxData_ {
     HDC dpy;
     HWND window;
-    int profile;
+    GlctxProfile profile;
     int maj_version, min_version;
 	HGLRC ctx;
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      int profile, int maj_version, int min_version,
-                      GlctxHandle *pctx)
+        GlctxProfile profile, int maj_version, int min_version,
+        GlctxHandle *pctx)
 {
     GlctxHandle ctx = (GlctxHandle) malloc(sizeof(struct GlctxData_));
 
@@ -34,7 +42,7 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
 }
 
 GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
-        const int *attrs, int suppress_defaults)
+        const int *attrs, int native_attrs)
 {
 	PIXELFORMATDESCRIPTOR pfd;
 	int color_bits = 0;
@@ -71,7 +79,7 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
 			}
 		}
 	}
-	
+
 	if (color_bits >= 15 && color_bits < 24)
 		pfd.cColorBits = 16;
 	else
@@ -84,11 +92,12 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     return GLCTX_ERROR_NONE;
 }
 
-int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, GlctxAttr attr)
 {
     PIXELFORMATDESCRIPTOR pfd;
 
-	if (!DescribePixelFormat(ctx->dpy, config, sizeof(PIXELFORMATDESCRIPTOR), &pfd))
+	if (!DescribePixelFormat(ctx->dpy, config, sizeof(PIXELFORMATDESCRIPTOR),
+	        &pfd))
 	{
 		glctx__log("glctx: DescribePixelFormat failed (%ld)\n", GetLastError());
 		return -1;
@@ -110,7 +119,8 @@ int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
 	case GLCTX_CFG_STENCIL_SIZE:
 		return pfd.cStencilBits;
 	default:
-		glctx__log("glctx: Bad attribute code %d for glctx_query_config\n", attr);
+		glctx__log("glctx: Bad attribute code %d for glctx_query_config\n",
+		        attr);
 	}
     return -1;
 }
@@ -127,7 +137,8 @@ GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
 	GlctxError result;
 	wglCreateContextAttribsARBProc wglCreateContextAttribsARB;
 
-	if (!DescribePixelFormat(ctx->dpy, config, sizeof(PIXELFORMATDESCRIPTOR), &pfd))
+	if (!DescribePixelFormat(ctx->dpy, config, sizeof(PIXELFORMATDESCRIPTOR),
+	        &pfd))
 	{
 		glctx__log("glctx: DescribePixelFormat failed: %ld\n", GetLastError());
 		return GLCTX_ERROR_CONFIG;
@@ -156,7 +167,7 @@ GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
 	if (wglCreateContextAttribsARB)
 	{
 		int default_attrs[] = {
-			0x9126, ctx->profile,
+			0x9126, glctx__profile_table[ctx->profile],
 			0x2091, ctx->maj_version,
 			0x2092, ctx->min_version,
 			0

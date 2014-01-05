@@ -7,7 +7,25 @@
 
 extern int (*glctx__log)(const char *format, ...);
 extern int glctx__log_ignore(const char *format, ...);
-extern int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs);
+extern int *glctx__make_attrs_buffer(const int *attrs,
+        const int *native_attrs, int native_attr_term);
+
+static int glctx__attr_table[] = {
+    None,
+    GLX_RED_SIZE,
+    GLX_GREEN_SIZE,
+    GLX_BLUE_SIZE,
+    GLX_ALPHA_SIZE,
+    GLX_DEPTH_SIZE,
+    GLX_STENCIL_SIZE
+};
+
+static int glctx__profile_table[] = {
+    0x0004,
+    0x0001,
+    0x0001,
+    0x0002
+};
 
 struct GlctxData_ {
     Display *dpy;
@@ -15,7 +33,7 @@ struct GlctxData_ {
     int screen;
     int width, height;
     GLXContext ctx;
-    int profile;
+    GlctxProfile profile;
     int maj_version, min_version;
 };
 
@@ -42,8 +60,8 @@ static void glctx_bind_xwindow(GlctxHandle ctx, Window window)
 }
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      int profile, int maj_version, int min_version,
-                      GlctxHandle *pctx)
+        GlctxProfile profile, int maj_version, int min_version,
+        GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
 
@@ -60,11 +78,11 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
 }
 
 GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
-        const int *attrs, int suppress_defaults)
+        const int *attrs, int native_attrs)
 {
     int fbc_count;
     GLXFBConfig* fbc;
-    int i, n;
+    int n, i;
     int best_nsamples = -1;
     static const int default_attrs[] = {
         GLX_X_RENDERABLE    , True,
@@ -78,30 +96,35 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         */
         None
     };
-    const int *native_attrs = suppress_defaults ? NULL : default_attrs;
-    int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
+    int *all_attrs;
 
-    i = 0;
-    if (attrs)
-    {
-        for (n = 0; attrs[n]; n += 2)
-        {
-            all_attrs[i++] = attrs[n];
-            all_attrs[i++] = attrs[n + 1];
-        }
-    }
     if (native_attrs)
     {
-        for (n = 0; native_attrs[n]; n += 2)
-        {
-            all_attrs[i++] = native_attrs[n];
-            all_attrs[i++] = native_attrs[n + 1];
-        }
+        all_attrs = (int *) default_attrs;
     }
-    all_attrs[i] = 0;
+    else
+    {
+        all_attrs = glctx__make_attrs_buffer(attrs, default_attrs, None);
+        i = 0;
+        if (attrs)
+        {
+            for (n = 0; attrs[n]; n += 2)
+            {
+                all_attrs[i++] = glctx__attr_table[attrs[n]];
+                all_attrs[i++] = attrs[n + 1];
+            }
+        }
+        for (n = 0; default_attrs[n] != None; n += 2)
+        {
+            all_attrs[i++] = default_attrs[n];
+            all_attrs[i++] = default_attrs[n + 1];
+        }
+        all_attrs[i] = None;
+    }
 
     fbc = glXChooseFBConfig(ctx->dpy, ctx->screen, all_attrs, &fbc_count);
-    free(all_attrs);
+    if (!native_attrs)
+        free(all_attrs);
     if (!fbc || fbc_count < 1)
     {
         glctx__log("glctx: Unable to get any matching GLX configs\n");
@@ -142,11 +165,11 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     return GLCTX_ERROR_NONE;
 }
 
-int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, GlctxAttr attr)
 {
     int val;
 
-    glXGetFBConfigAttrib(ctx->dpy, config, attr, &val);
+    glXGetFBConfigAttrib(ctx->dpy, config, glctx__attr_table[attr], &val);
     return val;
 }
 
@@ -180,7 +203,7 @@ GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs)
 {
     int default_attrs[] = {
-            0x9126, ctx->profile,
+            0x9126, glctx__profile_table[ctx->profile],
             0x2091, ctx->maj_version,
             0x2092, ctx->min_version,
             0

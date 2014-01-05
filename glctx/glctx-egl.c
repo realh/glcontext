@@ -13,14 +13,25 @@ extern int glGetError(void);
 
 extern int (*glctx__log)(const char *format, ...);
 extern int glctx__log_ignore(const char *format, ...);
-extern int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs);
+extern int *glctx__make_attrs_buffer(const int *attrs,
+        const int *native_attrs, int native_attr_term);
+
+static int glctx__attr_table[] = {
+    EGL_NONE,
+    EGL_RED_SIZE,
+    EGL_GREEN_SIZE,
+    EGL_BLUE_SIZE,
+    EGL_ALPHA_SIZE,
+    EGL_DEPTH_SIZE,
+    EGL_STENCIL_SIZE
+};
 
 struct GlctxData_ {
     EGLDisplay display;
     EGLSurface surface;
     EGLContext context;
     GlctxWindow window;
-    int profile;
+    GlctxProfile profile;
     int version;
 #if GLCTX_ENABLE_RPI
     EGL_DISPMANX_WINDOW_T nativewindow;
@@ -28,7 +39,7 @@ struct GlctxData_ {
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      int profile, int maj_version, int min_version,
+                      GlctxProfile profile, int maj_version, int min_version,
                       GlctxHandle *pctx)
 {
     GlctxHandle ctx = malloc(sizeof(struct GlctxData_));
@@ -61,7 +72,7 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
 }
 
 GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
-        const int *attrs, int suppress_defaults)
+        const int *attrs, int native_attrs)
 {
     int eprofile = (ctx->profile == GLCTX_PROFILE_OPENGLES) ?
                 ((ctx->version > 1) ? EGL_OPENGL_ES2_BIT : EGL_OPENGL_ES_BIT) :
@@ -69,35 +80,41 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     EGLint default_attrs[] = {
         EGL_RENDERABLE_TYPE, eprofile,
         EGL_CONFORMANT, eprofile,
-        GLCTX_CFG_NONE
+        EGL_NONE
     };
     EGLint n_configs = 0;
-    const int *native_attrs = suppress_defaults ? NULL : default_attrs;
-    int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
+    int *all_attrs;
     int i = 0;
     int n;
 
-    if (attrs)
-    {
-        for (n = 0; attrs[n] != GLCTX_CFG_NONE; n += 2)
-        {
-            all_attrs[i++] = attrs[n];
-            all_attrs[i++] = attrs[n + 1];
-        }
-    }
     if (native_attrs)
     {
-        for (n = 0; native_attrs[n] != GLCTX_CFG_NONE; n += 2)
-        {
-            all_attrs[i++] = native_attrs[n];
-            all_attrs[i++] = native_attrs[n + 1];
-        }
+        all_attrs = (int *) default_attrs;
     }
-    all_attrs[i] = GLCTX_CFG_NONE;
+    else
+    {
+        all_attrs = glctx__make_attrs_buffer(attrs, default_attrs, EGL_NONE);
+        i = 0;
+        if (attrs)
+        {
+            for (n = 0; attrs[n]; n += 2)
+            {
+                all_attrs[i++] = glctx__attr_table[attrs[n]];
+                all_attrs[i++] = attrs[n + 1];
+            }
+        }
+        for (n = 0; default_attrs[n] != EGL_NONE; n += 2)
+        {
+            all_attrs[i++] = default_attrs[n];
+            all_attrs[i++] = default_attrs[n + 1];
+        }
+        all_attrs[i] = EGL_NONE;
+    }
 
     if (glctx__log != glctx__log_ignore)
     {
         int n;
+        int chosen = 0;
         int result = eglChooseConfig(ctx->display, all_attrs, 0, 0, &n_configs);
 
         if (!result || n_configs < 1)
@@ -110,8 +127,9 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         EGLConfig *configs = malloc(sizeof(EGLConfig) * n_configs);
         eglChooseConfig(ctx->display, all_attrs,
                 configs, n_configs, &n_configs);
-        free(all_attrs);
-        int chosen = 0;
+        if (!native_attrs)
+            free(all_attrs);
+
         for (n = 0; n < n_configs; ++n)
         {
             EGLint r, g, b, a, d;
@@ -153,11 +171,11 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     return GLCTX_ERROR_NONE;
 }
 
-int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
+int glctx_query_config(GlctxHandle ctx, GlctxConfig config, GlctxAttr attr)
 {
     EGLint val;
 
-    eglGetConfigAttrib(ctx->display, config, attr, &val);
+    eglGetConfigAttrib(ctx->display, config, glctx__attr_table[attr], &val);
     return val;
 }
 

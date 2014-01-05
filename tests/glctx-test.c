@@ -1,4 +1,4 @@
-#include "glctx/glctx.h"
+#include "glctx-config.h"
 
 #if GLCTX_ENABLE_RPI
 #include <bcm_host.h>
@@ -10,6 +10,8 @@
 #include "GLES2/gl2.h"
 #define MY_GL_VERSION_MINOR 0
 #endif
+
+#include "glctx/glctx.h"
 
 #include "SDL/SDL.h"
 #include "SDL/SDL_syswm.h"
@@ -142,7 +144,7 @@ static void check_shader_build(GLuint shader, GLenum status_pname,
         strcpy(logstr, msg);
 #ifdef _MSC_VER
 #pragma warning(pop)
-#endif  
+#endif
 		if (link)
             glGetProgramInfoLog(shader, len, 0, (GLchar *) logstr + l);
         else

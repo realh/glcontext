@@ -45,19 +45,20 @@ const char *glctx_get_error_name(GlctxError err)
     return "GLCTX_ERROR_UNKNOWN";
 }
 
-int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs)
+int *glctx__make_attrs_buffer(const int *attrs,
+        const int *native_attrs, int native_attr_term)
 {
     int n_attrs = 0;
     int n;
 
     if (attrs)
     {
-        for (n = 0; attrs[n] != GLCTX_CFG_NONE; n += 2)
+        for (n = 0; attrs[n]; n += 2)
             ++n_attrs;
     }
     if (native_attrs)
     {
-        for (n = 0; native_attrs[n] != GLCTX_CFG_NONE; n += 2)
+        for (n = 0; native_attrs[n] != native_attr_term; n += 2)
             ++n_attrs;
     }
     n_attrs = n_attrs * 2 + 1;
