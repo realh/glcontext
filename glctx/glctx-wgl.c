@@ -115,7 +115,8 @@ int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr)
     return -1;
 }
 
-typedef HGLRC (*wglCreateContextAttribsARBProc)(HDC, HGLRC, const int *);
+typedef HGLRC (__stdcall *wglCreateContextAttribsARBProc)
+        (HDC, HGLRC, const int *);
 
 GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs)

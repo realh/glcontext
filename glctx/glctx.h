@@ -1,7 +1,8 @@
 #ifndef GLCTX_H
 #define GLCTX_H
 
-#include "glctx/glctx-config.h"
+#include "glctx-config.h"
+#include "glctx_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,7 +127,7 @@ typedef int (*GlctxLogFunction)(const char *format, ...);
  * This may be called at any time, but is usually called before any other
  * function.
  */
-void glctx_set_log_function(GlctxLogFunction logger);
+void GLCTX_EXPORT glctx_set_log_function(GlctxLogFunction logger);
 
 /*
  * GlctxHandle
@@ -138,7 +139,7 @@ typedef struct GlctxData_ *GlctxHandle;
  * glctx_get_error_name
  * Returns a string representation of the enum value
  */
-const char *glctx_get_error_name(GlctxError err);
+const char GLCTX_EXPORT *glctx_get_error_name(GlctxError err);
 
 /*
  * glctx_init
@@ -153,9 +154,9 @@ const char *glctx_get_error_name(GlctxError err);
  * min_version: Desired OpenGL minor version
  * pctx:        glcontext handle (out)
  */
-GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
-                      int profile, int maj_version, int min_version,
-                      GlctxHandle *pctx);
+GlctxError GLCTX_EXPORT glctx_init(GlctxDisplay display, GlctxWindow window,
+        int profile, int maj_version, int min_version,
+        GlctxHandle *pctx);
 
 /*
  * glctx_get_config
@@ -169,14 +170,15 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
  * suppress_defaults:   Usually this function adds suitable attributes for the
  *                      platform. Pass != 0 here to prevent them (expert).
  */
-GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
+GlctxError GLCTX_EXPORT glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
         const int *attrs, int suppress_defaults);
 
 /*
  * glctx_query_config
  * Get a config attribute
  */
-int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr);
+int GLCTX_EXPORT glctx_query_config(GlctxHandle ctx, GlctxConfig config,
+        int attr);
 
 /*
  * glctx_activate
@@ -188,45 +190,45 @@ int glctx_query_config(GlctxHandle ctx, GlctxConfig config, int attr);
  *              non-NULL suppresses default, usually used for profile.
  *              (Experts only).
  */
-GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
+GlctxError GLCTX_EXPORT glctx_activate(GlctxHandle ctx, GlctxConfig config,
         GlctxWindow window, const int *attrs);
 
 /*
  * glctx_get_native_context
  * Gets the underlying EGL, GLX or WGL context
  */
-GlctxNativeContext glctx_get_native_context(GlctxHandle ctx);
+GlctxNativeContext GLCTX_EXPORT glctx_get_native_context(GlctxHandle ctx);
 
 #if GLCTX_ENABLE_EGL
-EGLDisplay glctx_get_egl_display(GlctxHandle ctx);
+EGLDisplay GLCTX_EXPORT glctx_get_egl_display(GlctxHandle ctx);
 
-EGLSurface glctx_get_egl_surface(GlctxHandle ctx);
+EGLSurface GLCTX_EXPORT glctx_get_egl_surface(GlctxHandle ctx);
 #endif
 
 /*
  * glctx_flip
  * Flips buffers to display a rendered scene
  */
-void glctx_flip(GlctxHandle ctx);
+void GLCTX_EXPORT glctx_flip(GlctxHandle ctx);
 
 /*
  * glctx_unbind
  * Unbinds context from current thread
  */
-GlctxError glctx_unbind(GlctxHandle ctx);
+GlctxError GLCTX_EXPORT glctx_unbind(GlctxHandle ctx);
 
 /*
  * glctx_bind
  * Binds context to current thread (only to be called after glctx_unbind)
  */
-GlctxError glctx_bind(GlctxHandle ctx);
+GlctxError GLCTX_EXPORT glctx_bind(GlctxHandle ctx);
 
 /*
  * glctx_terminate
  * Shut down a GL context
  * ctx:         The context to shut down, will be invalid afterwards
  */
-void glctx_terminate(GlctxHandle ctx);
+void GLCTX_EXPORT glctx_terminate(GlctxHandle ctx);
 
 #ifdef __cplusplus
 }
