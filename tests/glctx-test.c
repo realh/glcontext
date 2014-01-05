@@ -1,12 +1,15 @@
-#ifdef ENABLE_OPENGL
+#include "glctx/glctx.h"
+
+#if GLCTX_ENABLE_RPI
+#include <bcm_host.h>
+#endif
+#ifdef GLCTX_ENABLE_OPENGL
 #include "GL/glew.h"
 #define MY_GL_VERSION_MINOR 1
 #else
 #include "GLES2/gl2.h"
 #define MY_GL_VERSION_MINOR 0
 #endif
-
-#include "glctx/glctx.h"
 
 #include "SDL/SDL.h"
 #include "SDL/SDL_syswm.h"
@@ -29,7 +32,7 @@ static SDL_Surface *init_sdl_window()
     return surf;
 }
 
-#if !GLCTX_ENABLE_OPENGLES
+#ifndef GLCTX_ENABLE_OPENGLES
 static void init_glew(void)
 {
     GLenum err = glewInit();
@@ -52,8 +55,7 @@ static GlctxHandle init_gl(void)
             GLCTX_CFG_RED_SIZE, 8,
             GLCTX_CFG_GREEN_SIZE, 8,
             GLCTX_CFG_BLUE_SIZE, 8,
-            GLCTX_CFG_DEPTH_SIZE, 24,
-            GLCTX_CFG_END
+            GLCTX_CFG_NONE
     };
     GlctxDisplay dpy;
     GlctxWindow win;
@@ -76,7 +78,7 @@ static GlctxHandle init_gl(void)
     win = wminfo.info.x11.window;
 #endif
     err = glctx_init(dpy, win, MY_GLCTX_PROFILE, 2,
-#if GLCTX_ENABLE_OPENGL
+#ifdef GLCTX_ENABLE_OPENGL
             1,
 #else
             0,
@@ -102,7 +104,7 @@ static GlctxHandle init_gl(void)
         exit(1);
     }
 
-#if !ENABLE_OPENGLES
+#ifndef GLCTX_ENABLE_OPENGLES
     init_glew();
 #endif
 
@@ -176,7 +178,7 @@ GLuint link_shaders(GLuint vert, GLuint frag)
     return prog;
 }
 
-#if ENABLE_OPENGLES
+#ifdef GLCTX_ENABLE_OPENGLES
 #define GLSL_VERSION "#version 100\n"
 #else
 #define GLSL_VERSION "#version 120\n"
@@ -294,6 +296,7 @@ int main(int argc, char **argv)
     surf = init_sdl_window();
     ctx = init_gl();
 #if GLCTX_ENABLE_RPI
+    (void) surf;
     edpy = glctx_get_egl_display(ctx);
     esurf = glctx_get_egl_surface(ctx);
     if (!eglQuerySurface(edpy, esurf, EGL_WIDTH, &w) ||

@@ -69,8 +69,6 @@ typedef enum {
 /*
  * Attribute codes of a config.
  */
-#define GLCTX_CFG_END           0
-
 #if GLCTX_ENABLE_EGL
 #define GLCTX_CFG_RED_SIZE      EGL_RED_SIZE
 #define GLCTX_CFG_GREEN_SIZE    EGL_GREEN_SIZE
@@ -78,6 +76,7 @@ typedef enum {
 #define GLCTX_CFG_ALPHA_SIZE    EGL_ALPHA_SIZE
 #define GLCTX_CFG_DEPTH_SIZE    EGL_DEPTH_SIZE
 #define GLCTX_CFG_STENCIL_SIZE  EGL_STENCIL_SIZE
+#define GLCTX_CFG_NONE          EGL_NONE
 #elif GLCTX_ENABLE_GLX
 #define GLCTX_CFG_RED_SIZE      GLX_RED_SIZE
 #define GLCTX_CFG_GREEN_SIZE    GLX_GREEN_SIZE
@@ -85,6 +84,7 @@ typedef enum {
 #define GLCTX_CFG_ALPHA_SIZE    GLX_ALPHA_SIZE
 #define GLCTX_CFG_DEPTH_SIZE    GLX_DEPTH_SIZE
 #define GLCTX_CFG_STENCIL_SIZE  GLX_STENCIL_SIZE
+#define GLCTX_CFG_NONE          None
 #elif GLCTX_ENABLE_WGL
 #define GLCTX_CFG_RED_SIZE      1
 #define GLCTX_CFG_GREEN_SIZE    2
@@ -92,6 +92,7 @@ typedef enum {
 #define GLCTX_CFG_ALPHA_SIZE    4
 #define GLCTX_CFG_DEPTH_SIZE    5
 #define GLCTX_CFG_STENCIL_SIZE  6
+#define GLCTX_CFG_NONE          0
 #endif
 
 /* Values for glctx_init's profile argument */
@@ -164,9 +165,10 @@ GlctxError GLCTX_EXPORT glctx_init(GlctxDisplay display, GlctxWindow window,
  *
  * ctx:         The context to shut down
  * cfg_out:     A config is returned here
- * attrs:       List of pairs of (attr, value), terminated by NONE; you may mix
- *              GLCTX_CFG_* with platform's natives, but the latter is not
- *              recommended except for experts
+ * attrs:       List of pairs of (attr, value), terminated by GLCTX_CFG_NONE
+ *              (which is not necessarily 0). You may mix GLCTX_CFG_* with
+ *              platform's natives, but the latter is not recommended except
+ *              for experts
  * suppress_defaults:   Usually this function adds suitable attributes for the
  *                      platform. Pass != 0 here to prevent them (expert).
  */

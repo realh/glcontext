@@ -8,6 +8,7 @@
 #include <android/native_window.h>
 #elif GLCTX_ENABLE_RPI
 #include "bcm_host.h"
+extern int glGetError(void);
 #endif
 
 extern int (*glctx__log)(const char *format, ...);
@@ -21,6 +22,9 @@ struct GlctxData_ {
     GlctxWindow window;
     int profile;
     int version;
+#if GLCTX_ENABLE_RPI
+    EGL_DISPMANX_WINDOW_T nativewindow;
+#endif
 };
 
 GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
@@ -34,6 +38,7 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     if (!ctx)
         return GLCTX_ERROR_MEMORY;
 #if GLCTX_ENABLE_RPI
+    (void) display;
     ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 #else
     ctx->display = eglGetDisplay(display);
@@ -52,13 +57,6 @@ GlctxError glctx_init(GlctxDisplay display, GlctxWindow window,
     ctx->version = maj_version;
     (void) min_version;
     glctx__log("glctx: Initialised display with EGL %d.%d\n", emaj, emin);
-#if 0
-    if (!ctx->api && eglQueryAPI() == EGL_NONE)
-    {
-        /* EGL_NONE means ES is not supported, better force GL */
-        ctx->api = GLCTX_API_OPENGL;
-    }
-#endif
     return GLCTX_ERROR_NONE;
 }
 
@@ -71,9 +69,9 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     EGLint default_attrs[] = {
         EGL_RENDERABLE_TYPE, eprofile,
         EGL_CONFORMANT, eprofile,
-        EGL_NONE
+        GLCTX_CFG_NONE
     };
-    EGLint n_configs;
+    EGLint n_configs = 0;
     const int *native_attrs = suppress_defaults ? NULL : default_attrs;
     int *all_attrs = glctx__make_attrs_buffer(attrs, native_attrs);
     int i = 0;
@@ -81,7 +79,7 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
 
     if (attrs)
     {
-        for (n = 0; attrs[n]; n += 2)
+        for (n = 0; attrs[n] != GLCTX_CFG_NONE; n += 2)
         {
             all_attrs[i++] = attrs[n];
             all_attrs[i++] = attrs[n + 1];
@@ -89,13 +87,14 @@ GlctxError glctx_get_config(GlctxHandle ctx, GlctxConfig *cfg_out,
     }
     if (native_attrs)
     {
-        for (n = 0; native_attrs[n]; n += 2)
+        for (n = 0; native_attrs[n] != GLCTX_CFG_NONE; n += 2)
         {
             all_attrs[i++] = native_attrs[n];
             all_attrs[i++] = native_attrs[n + 1];
         }
     }
-    all_attrs[i] = 0;
+    all_attrs[i] = GLCTX_CFG_NONE;
+
     if (glctx__log != glctx__log_ignore)
     {
         int n;
@@ -179,7 +178,6 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
 #elif GLCTX_ENABLE_RPI
 static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
 {
-    static EGL_DISPMANX_WINDOW_T nativewindow;
     DISPMANX_ELEMENT_HANDLE_T dispman_element;
     DISPMANX_DISPLAY_HANDLE_T dispman_display;
     DISPMANX_UPDATE_HANDLE_T dispman_update;
@@ -207,15 +205,14 @@ static GlctxError glctx_configure_platform(GlctxHandle ctx, GlctxConfig config)
             0 /* src */, &src_rect,
             DISPMANX_PROTECTION_NONE,
             0 /* alpha */, 0 /* clamp */, (DISPMANX_TRANSFORM_T) 0);
-    nativewindow.element = dispman_element;
-    nativewindow.width = disp_w;
-    nativewindow.height = disp_h;
+    ctx->nativewindow.element = dispman_element;
+    ctx->nativewindow.width = disp_w;
+    ctx->nativewindow.height = disp_h;
     vc_dispmanx_update_submit_sync(dispman_update);
     if (glGetError())
     {
         glctx__log("glctx: Unable to set up vc display manager\n");
     }
-    ctx->window = (GlctxWindow) &nativewindow;
     return GLCTX_ERROR_NONE;
 }
 #else
@@ -252,7 +249,12 @@ GlctxError glctx_activate(GlctxHandle ctx, GlctxConfig config,
         return result;
 
     ctx->surface = eglCreateWindowSurface(ctx->display, config,
-            (EGLNativeWindowType) window, 0);
+#if GLCTX_ENABLE_RPI
+            &ctx->nativewindow,
+#else
+            window,
+#endif
+            0);
     if (ctx->surface == EGL_NO_SURFACE)
     {
         glctx__log("glctx: Unable to create OpenGL(ES) surface with EGL\n");
@@ -293,6 +295,21 @@ int glctx_get_height(GlctxHandle ctx)
     return h;
 }
 #endif
+
+GlctxNativeContext glctx_get_native_context(GlctxHandle ctx)
+{
+    return ctx->context;
+}
+
+EGLDisplay glctx_get_egl_display(GlctxHandle ctx)
+{
+    return ctx->display;
+}
+
+EGLSurface glctx_get_egl_surface(GlctxHandle ctx)
+{
+    return ctx->surface;
+}
 
 void glctx_flip(GlctxHandle ctx)
 {

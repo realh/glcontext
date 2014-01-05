@@ -26,6 +26,7 @@ if(UNIX AND NOT APPLE)
     else()
         set(HAVE_RPI_INC 0)
     endif()
+    execute_process(COMMAND "uname" "-m" "-o" OUTPUT_VARIABLE MY_UNAME)
     if ("${MY_UNAME}" STREQUAL "armv6l GNU/Linux\n" AND HAVE_RPI_INC)
         option(ENABLE_RPI "Build for Raspberry Pi" ON)
     else()
@@ -95,7 +96,7 @@ endif()
 include_directories(${GLCTX_INCLUDES}
         ${PROJECT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
 
-configure_file(glctx/glctx-config.h.in glctx/glctx-config.h)
+configure_file(glctx-config.h.in glctx-config.h)
 
 # Choose source and build library
 if(ENABLE_EGL)
@@ -150,7 +151,7 @@ if(ENABLE_TESTS)
             add_executable(glctx-testgl tests/glctx-test.c)
             target_compile_definitions(glctx-testgl PUBLIC
                     -DMY_GLCTX_PROFILE=GLCTX_PROFILE_OPENGL
-                    -DENABLE_OPENGL)
+                    -DGLCTX_ENABLE_OPENGL)
             target_include_directories(glctx-testgl PUBLIC
                     ${GLEW_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR})
             target_link_libraries(glctx-testgl glctx ${GLCTX_LIBRARIES}
@@ -160,7 +161,7 @@ if(ENABLE_TESTS)
             add_executable(glctx-testgles tests/glctx-test.c)
             target_compile_definitions(glctx-testgles PUBLIC
                     -DMY_GLCTX_PROFILE=GLCTX_PROFILE_OPENGLES
-                    -DENABLE_OPENGLES)
+                    -DGLCTX_ENABLE_OPENGLES)
             target_include_directories(glctx-testgles PUBLIC
                     ${GLESv2_INCLUDE_DIR})
             target_link_libraries(glctx-testgles glctx ${GLCTX_LIBRARIES}

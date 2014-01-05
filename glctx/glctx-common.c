@@ -52,12 +52,12 @@ int *glctx__make_attrs_buffer(const int *attrs, const int *native_attrs)
 
     if (attrs)
     {
-        for (n = 0; attrs[n]; n += 2)
+        for (n = 0; attrs[n] != GLCTX_CFG_NONE; n += 2)
             ++n_attrs;
     }
     if (native_attrs)
     {
-        for (n = 0; native_attrs[n]; n += 2)
+        for (n = 0; native_attrs[n] != GLCTX_CFG_NONE; n += 2)
             ++n_attrs;
     }
     n_attrs = n_attrs * 2 + 1;
