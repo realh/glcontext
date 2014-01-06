@@ -17,7 +17,6 @@ if(NOT MSVC)
     add_definitions(-Wall -Wextra -Wunused -Wwrite-strings)
 endif()
 
-
 # Work out platform/back-end
 if(UNIX AND NOT APPLE)
     # Raspberry Pi?
@@ -35,6 +34,19 @@ if(UNIX AND NOT APPLE)
 else()
     set(ENABLE_RPI OFF)
 endif()
+
+# Support multiarch on Debian etc
+if(NOT CMAKE_ARCH_TRIPLET)
+    execute_process(COMMAND "dpkg-architecture" "-qDEB_HOST_MULTIARCH"
+            OUTPUT_VARIABLE CMAKE_ARCH_TRIPLET ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+if(CMAKE_ARCH_TRIPLET)
+    set(GLCTX_LIBDIR "lib/${CMAKE_ARCH_TRIPLET}")
+else()
+    set(GLCTX_LIBDIR "lib")
+endif()
+
 
 CMAKE_DEPENDENT_OPTION(ENABLE_EGL "Use EGL" OFF "NOT ENABLE_RPI" ON)
 
@@ -70,7 +82,6 @@ else()
     set(GLCTX_X11 1)
 endif()
 
-
 # Find libraries we need
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/modules)
 if(ENABLE_RPI)
@@ -78,25 +89,44 @@ if(ENABLE_RPI)
     find_package(RPiEGL REQUIRED)
     set(GLCTX_INCLUDES ${EGL_INCLUDE_DIR} ${BCM_HOST_INCLUDE_DIR})
     set(GLCTX_LIBRARIES ${EGL_LIBRARY} ${BCM_HOST_LIBRARY})
+    set(GLCTX_PKG_LIBS "-L/opt/vc/lib -lEGL -lbcm_host")
 elseif(ENABLE_EGL)
     find_package(EGL REQUIRED)
     set(GLCTX_INCLUDES ${EGL_INCLUDE_DIR})
     set(GLCTX_LIBRARIES ${EGL_LIBRARY})
+    set(GLCTX_PKG_DEPS "${GLCTX_PKG_DEPS} egl")
 elseif(GLCTX_ENABLE_GLX)
     find_package(X11 REQUIRED)
     find_package(OpenGL REQUIRED)
     set(GLCTX_INCLUDES ${OPENGL_INCLUDE_DIR} ${X11_INCLUDE_DIR})
     set(GLCTX_LIBRARIES ${OPENGL_gl_LIBRARY} ${X11_LIBRARY})
+    set(GLCTX_PKG_DEPS "${GLCTX_PKG_DEPS} gl")
 elseif(GLCTX_ENABLE_WGL)
     find_package(OpenGL REQUIRED)
     set(GLCTX_INCLUDES ${OPENGL_INCLUDE_DIR})
     set(GLCTX_LIBRARIES ${OPENGL_gl_LIBRARY})
+    set(GLCTX_PKG_DEPS "${GLCTX_PKG_DEPS} gl")
+endif()
+
+list(APPEND GLCTX_PKG_INCLUDES ${CMAKE_INCLUDE_PREFIX}/include)
+foreach(I ${GLCTX_INCLUDES})
+    list(APPEND GLCTX_PKG_INCLUDES ${I})
+endforeach()
+list(REMOVE_DUPLICATES GLCTX_PKG_INCLUDES)
+foreach(I IN LISTS GLCTX_PKG_INCLUDES)
+    set(GLCTX_PKG_CFLAGS "${GLCTX_PKG_CFLAGS} -I${I}")
+endforeach()
+
+if(NOT WIN32)
+    set(GLCTX_PKG_DEPS "${GLCTX_PKG_DEPS} x11")
 endif()
 
 include_directories(${GLCTX_INCLUDES}
         ${PROJECT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
 
 configure_file(glctx-config.h.in glctx-config.h)
+configure_file(glcontext.pc.in glcontext.pc @ONLY)
+configure_file(FindGLContext.cmake.in FindGLContext.cmake @ONLY)
 
 # Choose source and build library
 if(ENABLE_EGL)
@@ -107,15 +137,15 @@ elseif(GLCTX_ENABLE_WGL)
     set(GLCTX_SRC glctx/glctx-wgl.c)
 endif()
 set(GLCTX_SRC ${GLCTX_SRC} glctx/glctx-common.c glctx/glctx.h)
-add_library(glctx ${GLCTX_SRC})
-generate_export_header(glctx)
+add_library(glcontext ${GLCTX_SRC})
+generate_export_header(glcontext BASE_NAME glctx)
 if(BUILD_SHARED_LIBS)
-    set_target_properties(glctx PROPERTIES VERSION ${GLCTX_VERSION_STRING})
+    set_target_properties(glcontext PROPERTIES VERSION ${GLCTX_VERSION_STRING})
     if (UNIX)
-        set_target_properties(glctx PROPERTIES SOVERSION ${GLCTX_SOVERSION})
+        set_target_properties(glcontext PROPERTIES SOVERSION ${GLCTX_SOVERSION})
     endif()
 endif()
-target_link_libraries(glctx ${GLCTX_LIBRARIES})
+target_link_libraries(glcontext ${GLCTX_LIBRARIES})
 
 if(ENABLE_TESTS)
     find_package(SDL 1.2)
@@ -154,7 +184,7 @@ if(ENABLE_TESTS)
                     -DGLCTX_ENABLE_OPENGL)
             target_include_directories(glctx-testgl PUBLIC
                     ${GLEW_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR})
-            target_link_libraries(glctx-testgl glctx ${GLCTX_LIBRARIES}
+            target_link_libraries(glctx-testgl glcontext ${GLCTX_LIBRARIES}
                     ${SDL_LIBRARY} ${GLEW_LIBRARIES} ${OPENGL_gl_LIBRARY})
         endif()
         if(GLESV2_FOUND)
@@ -164,8 +194,22 @@ if(ENABLE_TESTS)
                     -DGLCTX_ENABLE_OPENGLES)
             target_include_directories(glctx-testgles PUBLIC
                     ${GLESv2_INCLUDE_DIR})
-            target_link_libraries(glctx-testgles glctx ${GLCTX_LIBRARIES}
+            target_link_libraries(glctx-testgles glcontext ${GLCTX_LIBRARIES}
                     ${SDL_LIBRARY} ${GLESv2_LIBRARY})
         endif()
     endif()
 endif()
+
+
+install(TARGETS glcontext EXPORT glcontext
+        LIBRARY DESTINATION ${GLCTX_LIBDIR}
+        ARCHIVE DESTINATION ${GLCTX_LIBDIR})
+install(FILES ${PROJECT_BINARY_DIR}/glcontext.pc
+        DESTINATION ${GLCTX_LIBDIR}/pkgconfig)
+install(FILES ${PROJECT_BINARY_DIR}/FindGLContext.cmake
+        DESTINATION ${GLCTX_LIBDIR}/cmake/GLContext)
+
+# This isn't much use
+#install(EXPORT glcontext
+#        FILE GLContext.cmake
+#        DESTINATION ${GLCTX_LIBDIR}/cmake/GLContext)

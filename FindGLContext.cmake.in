@@ -1,0 +1,11 @@
+# - CMake config/Find file for the glcontext package
+# It defines the following variables
+#   GCTX_INCLUDE_DIRS, the paths where necessary headers are located
+#   GLFW_LIBRARY_DIR, folder in which glcontext library is located
+#   GLFW_LIBRARIES, libraries to link against to use glcontext
+
+set(GLCTX_INCLUDE_DIRS "@CMAKE_INSTALL_PREFIX@/include")
+set(GLCTX_LIBRARY_DIR "@CMAKE_INSTALL_PREFIX@/@GLCTX_LIBDIR@")
+
+find_library(GLCTX_LIBRARIES "@GLFW_LIB_NAME@" HINTS ${GLCTX_LIBRARY_DIR})
+set(GLCTX_LIBRARIES "${GLCTX_LIBRARIES} @GLCTX_LIBRARIES@)
