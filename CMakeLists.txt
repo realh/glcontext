@@ -204,6 +204,11 @@ endif()
 install(TARGETS glcontext EXPORT glcontext
         LIBRARY DESTINATION ${GLCTX_LIBDIR}
         ARCHIVE DESTINATION ${GLCTX_LIBDIR})
+install(FILES
+        ${PROJECT_SOURCE_DIR}/glctx/glctx.h
+        ${PROJECT_BINARY_DIR}/glctx-config.h
+        ${PROJECT_BINARY_DIR}/glctx_export.h
+        DESTINATION include/glctx)
 install(FILES ${PROJECT_BINARY_DIR}/glcontext.pc
         DESTINATION ${GLCTX_LIBDIR}/pkgconfig)
 install(FILES ${PROJECT_BINARY_DIR}/FindGLContext.cmake
