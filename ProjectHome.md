@@ -1,0 +1,1 @@
+glcontext provides a simple, unified C API for creating an OpenGL or OpenGL ES context without the programmer having to write at least three sets of code for WGL, GLX and EGL. It supports Windows, Linux (including Raspberry Pi) and Android (native only).

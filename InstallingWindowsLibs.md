@@ -1,0 +1,6 @@
+# Installing libraries in Windows and letting CMake find them #
+
+Microsoft Visual C++ has no standard location for 3rd party libraries, so you need to install these libraries in such a way that CMake can find them. The recommended way is to designate a folder as your code library folder then set the environment variable CMAKE\_PREFIX\_PATH to this folder.
+Exactly how to do that varies with Windows version so please search for further information. Within the folder create subdirectories called lib and include. To install a library copy its .lib and .ddl files into the lib directory and its header files or folders into include. You will also later have to copy the .dll files into the same folder as the .exe that's linked with them.
+
+MinGW does have a standard prefix folder containing lib and include, which cmake should be able to find if you run it in mingw's shell. Libraries you build with MinGW will install there when you run their `make install` target, but you will have to install them there manually if you use precompiled versions.
